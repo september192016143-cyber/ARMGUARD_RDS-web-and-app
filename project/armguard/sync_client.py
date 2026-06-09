@@ -342,29 +342,52 @@ class SyncClient:
         """
         Collect transactions and logs that were created/updated after `since`
         so the server gets a copy.
+
+        TransactionLogs has no single `transaction` FK — it has 20 separate FK
+        fields (withdrawal_pistol_transaction_id, etc.).  We build an OR query
+        across all of them to find logs linked to the transactions being pushed.
         """
         from armguard.apps.transactions.models import Transaction, TransactionLogs
         from armguard.apps.api.sync_serializers import (
             SyncTransactionSerializer, SyncTransactionLogsSerializer,
         )
+        from django.db.models import Q
         from django.utils.dateparse import parse_datetime
+
         dt = parse_datetime(since)
         if dt and dt.tzinfo is None:
             from datetime import timezone as _tz
             dt = dt.replace(tzinfo=_tz.utc)
 
         qs = Transaction.objects.filter(updated_at__gte=dt) if dt else Transaction.objects.all()
-        txn_data = SyncTransactionSerializer(qs, many=True).data
+        txn_data = list(SyncTransactionSerializer(qs, many=True).data)
 
-        log_qs = TransactionLogs.objects.filter(transaction__in=qs)
-        log_data = SyncTransactionLogsSerializer(log_qs, many=True).data
+        # Build an OR across all 20 Transaction FK fields on TransactionLogs.
+        txn_ids = list(qs.values_list('transaction_id', flat=True))
+        log_data = []
+        if txn_ids:
+            q = Q()
+            for fk_field in _LOG_TXN_FK_FIELDS:
+                q |= Q(**{f'{fk_field}__in': txn_ids})
+            log_qs = TransactionLogs.objects.filter(q).distinct()
+            log_data = list(SyncTransactionLogsSerializer(log_qs, many=True).data)
 
-        return list(txn_data), list(log_data)
+        return txn_data, log_data
 
     # ── Full sync cycle ───────────────────────────────────────────────────────
     def sync(self) -> None:
-        """Run a full pull-then-push sync cycle."""
+        """Run a full pull-then-push sync cycle.
+
+        Each model type is upserted in its own atomic block so the SQLite write
+        lock is held for milliseconds at a time rather than for the full cycle.
+        This lets Waitress request threads get writes in between and prevents
+        the armorer's activity from being blocked by a background sync.
+        """
         from armguard.apps.inventory.models import Pistol, Rifle, Magazine, Ammunition, Accessory
+        from django.db import close_old_connections
+
+        # Release any stale connections held by this thread before we start.
+        close_old_connections()
 
         state = _load_state()
         last_sync = state.get('last_sync', _EPOCH_STR)
@@ -373,30 +396,23 @@ class SyncClient:
         logger.info('Starting sync pull (since=%s)', last_sync)
         data = self.pull(since=last_sync)
 
-        with db_transaction.atomic():
-            c, u = _upsert_personnel(data.get('personnel', []))
-            logger.info('Personnel   created=%d updated=%d', c, u)
+        # Each model gets its own short atomic block so the write lock is only
+        # held for that model's upserts.  time.sleep(0) yields the GIL between
+        # models, giving Waitress worker threads a chance to process requests.
+        def _run(label, fn, *args):
+            with db_transaction.atomic():
+                c, u = fn(*args)
+            logger.info('%s  created=%d updated=%d', label, c, u)
+            time.sleep(0)
 
-            c, u = _upsert_model(Pistol,      data.get('pistols', []),      'item_id')
-            logger.info('Pistols     created=%d updated=%d', c, u)
-
-            c, u = _upsert_model(Rifle,       data.get('rifles', []),       'item_id')
-            logger.info('Rifles      created=%d updated=%d', c, u)
-
-            c, u = _upsert_model(Magazine,    data.get('magazines', []),    'id')
-            logger.info('Magazines   created=%d updated=%d', c, u)
-
-            c, u = _upsert_model(Ammunition,  data.get('ammunition', []),   'id')
-            logger.info('Ammunition  created=%d updated=%d', c, u)
-
-            c, u = _upsert_model(Accessory,   data.get('accessories', []),  'id')
-            logger.info('Accessories created=%d updated=%d', c, u)
-
-            c, u = _upsert_transactions(data.get('transactions', []))
-            logger.info('Transactions created=%d updated=%d', c, u)
-
-            c, u = _upsert_logs(data.get('logs', []))
-            logger.info('Logs         created=%d updated=%d', c, u)
+        _run('Personnel  ', _upsert_personnel,   data.get('personnel', []))
+        _run('Pistols    ', _upsert_model, Pistol,     data.get('pistols', []),     'item_id')
+        _run('Rifles     ', _upsert_model, Rifle,      data.get('rifles', []),      'item_id')
+        _run('Magazines  ', _upsert_model, Magazine,   data.get('magazines', []),   'id')
+        _run('Ammunition ', _upsert_model, Ammunition, data.get('ammunition', []),  'id')
+        _run('Accessories', _upsert_model, Accessory,  data.get('accessories', []), 'id')
+        _run('Transactions', _upsert_transactions, data.get('transactions', []))
+        _run('Logs       ', _upsert_logs,         data.get('logs', []))
 
         # ── PUSH ──────────────────────────────────────────────────────────────
         txns, logs = self._local_transactions_to_push(last_sync)
@@ -414,6 +430,9 @@ class SyncClient:
         now_str = datetime.now(tz=dt_tz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         _save_state({'last_sync': now_str})
         logger.info('Sync complete. Next since=%s', now_str)
+
+        # Release connections so they are not held idle between sync cycles.
+        close_old_connections()
 
 
 # ── Background thread entry point ─────────────────────────────────────────────
