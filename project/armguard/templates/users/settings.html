@@ -917,28 +917,60 @@
     {% endif %}
   </div>
 
+  <!-- Installer upload (admin once-off) -->
+  <div style="margin-bottom:1rem">
+    {% if installer_exists %}
+      <div style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;color:#16a34a;margin-bottom:.5rem">
+        <i class="fa-solid fa-circle-check"></i> Installer uploaded — package download is ready.
+      </div><br>
+    {% else %}
+      <div style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;color:#f59e0b;margin-bottom:.5rem">
+        <i class="fa-solid fa-triangle-exclamation"></i> No installer uploaded yet — upload <code>ARMGUARD_RDS_Setup.exe</code> to enable one-click package download.
+      </div><br>
+    {% endif %}
+    <form method="post" action="{% url 'settings-desktop-installer' %}" enctype="multipart/form-data"
+          style="display:inline-flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      {% csrf_token %}
+      <input type="file" name="installer_file" accept=".exe" required
+             style="font-size:.8rem;color:var(--text)">
+      <button type="submit" class="btn btn-sm"
+              style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:.35rem .9rem;border-radius:6px;cursor:pointer">
+        <i class="fa-solid fa-upload"></i> Upload Installer
+      </button>
+    </form>
+  </div>
+
   <!-- Download button -->
   <form method="post" action="{% url 'settings-desktop-env' %}" style="margin-bottom:1.25rem">
     {% csrf_token %}
-    <button type="submit" class="btn btn-sm"
-            style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
-      <i class="fa-solid fa-download"></i> Download .env for Desktop App
-    </button>
+    {% if installer_exists %}
+      <button type="submit" class="btn btn-sm"
+              style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
+        <i class="fa-solid fa-download"></i> Download Installation Package (.zip)
+      </button>
+      <span style="font-size:.78rem;color:var(--muted);margin-left:.5rem">Includes installer + pre-configured .env</span>
+    {% else %}
+      <button type="submit" class="btn btn-sm"
+              style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
+        <i class="fa-solid fa-download"></i> Download .env for Desktop App
+      </button>
+    {% endif %}
   </form>
 
   <!-- Installation steps -->
   <div style="border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;background:var(--surface2);font-size:.83rem">
     <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Installation Steps (Windows PC)</div>
     <ol style="margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem;color:var(--text)">
-      <li>Click <strong>Download .env</strong> above to get your configuration file.</li>
-      <li>Download the installer from the IT officer or shared drive:
-        <code style="display:inline-block;margin-top:.2rem;padding:.1rem .4rem;background:var(--surface);border-radius:4px">ARMGUARD_RDS_Setup.exe</code>
-      </li>
-      <li>Run <strong>ARMGUARD_RDS_Setup.exe</strong> &mdash; follow the wizard (no Python or Git required).</li>
-      <li>Place the downloaded <strong>.env</strong> file in the installation folder:
-        <code style="display:block;margin-top:.2rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;white-space:pre">C:\Program Files\ARMGUARD RDS\   (or wherever you chose during install)</code>
-      </li>
-      <li>Launch <strong>ARMGUARD RDS</strong> from the Desktop shortcut &mdash; the app syncs automatically every 5 minutes.</li>
+      {% if installer_exists %}
+        <li>Click <strong>Download Installation Package (.zip)</strong> above.</li>
+        <li>Extract the ZIP to any folder on the Windows PC.</li>
+        <li>Double-click <strong>ARMGUARD_RDS_Setup.exe</strong> &mdash; the wizard installs the app and places the .env automatically. No Python or Git required.</li>
+        <li>Launch <strong>ARMGUARD RDS</strong> from the Desktop shortcut &mdash; the app syncs automatically every 5 minutes.</li>
+      {% else %}
+        <li>Upload <code>ARMGUARD_RDS_Setup.exe</code> using the <strong>Upload Installer</strong> button above (admin, once).</li>
+        <li>Click <strong>Download Installation Package (.zip)</strong> &mdash; it will bundle the installer and .env together.</li>
+        <li>Extract the ZIP, run <strong>ARMGUARD_RDS_Setup.exe</strong>, and launch from the Desktop shortcut.</li>
+      {% endif %}
     </ol>
     <div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(59,130,246,.07);border-radius:6px;border:1px solid rgba(59,130,246,.2);font-size:.79rem;color:var(--muted)">
       <i class="fa-solid fa-circle-info" style="color:#3b82f6"></i>

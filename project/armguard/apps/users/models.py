@@ -418,6 +418,16 @@ class SystemSettings(models.Model):
         help_text='Custom logo displayed in the sidebar. Recommended: square PNG, at least 80×80 px.',
     )
 
+    # ── Desktop installer ─────────────────────────────────────────────────────
+    desktop_installer = models.FileField(
+        upload_to='desktop_installer/',
+        blank=True,
+        null=True,
+        help_text='Upload ARMGUARD_RDS_Setup.exe here. When present, the Download button '
+                  'returns a ZIP containing both the installer and the pre-configured .env '
+                  'so users only need to extract and run Setup.exe.',
+    )
+
 
     # ── Security & Authentication policy ─────────────────────────────────────
     mfa_required = models.BooleanField(

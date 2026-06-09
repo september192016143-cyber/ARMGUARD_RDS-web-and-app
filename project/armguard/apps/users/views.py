@@ -753,6 +753,7 @@ class SystemSettingsView(LoginRequiredMixin, View):
         # ── Desktop sync token presence (for the Desktop App Setup card) ──────
         from rest_framework.authtoken.models import Token as _Token
         _sync_token_exists = _Token.objects.filter(user=request.user).exists()
+        _installer_exists = bool(s.desktop_installer and s.desktop_installer.name)
         from django.db.models import Count, Value, IntegerField, Subquery, OuterRef
         from django.db.models.functions import Coalesce
         personnel_groups = PersonnelGroup.objects.annotate(
@@ -792,6 +793,7 @@ class SystemSettingsView(LoginRequiredMixin, View):
             'personnel_groups':        personnel_groups,
             'personnel_squadrons':     personnel_squadrons,
             'sync_token_exists':       _sync_token_exists,
+            'installer_exists':        _installer_exists,
         })
 
     def post(self, request):
@@ -2073,34 +2075,35 @@ def cleanup_orphaned_personnel_media(request):
 @require_POST
 @login_required
 def desktop_env_download(request):
-    """Generate and return a pre-configured .env file for the desktop app.
+    """Generate and return a desktop app package for the requesting superuser.
 
-    Superuser-only.  Creates the requesting user's DRF token if it does not
-    exist yet, then embeds it alongside the detected server URL into a .env
-    file the operator can drop straight into the desktop app folder.
+    If an installer .exe has been uploaded to SystemSettings.desktop_installer,
+    returns a ZIP containing:
+      - ARMGUARD_RDS_Setup.exe  (the installer)
+      - .env  (pre-configured with this server's URL and the user's sync token)
+
+    If no installer is uploaded yet, falls back to returning just the .env file
+    so operators can still configure manually if needed.
     """
     if not request.user.is_superuser:
         messages.error(request, 'Access denied.')
         return redirect('system-settings')
 
+    import io
+    import zipfile
     import secrets as _secrets
     from datetime import datetime as _dt
     from rest_framework.authtoken.models import Token as _Token
+    from .models import SystemSettings
 
-    # Get or create the DRF token for the superuser account.
     token, _created = _Token.objects.get_or_create(user=request.user)
-
-    # Detect the server URL from the incoming request so the .env is always
-    # correct regardless of how the server is accessed (IP, hostname, etc.).
     server_url = f"{request.scheme}://{request.get_host()}"
-
-    # Generate a unique secret key for the desktop Django instance.
     desktop_secret = _secrets.token_urlsafe(50)
 
     lines = [
         '# ARMGUARD RDS \u2014 Desktop Application Environment',
         f'# Generated: {_dt.now().strftime("%Y-%m-%d %H:%M")} by {request.user.username}',
-        '# Place this file in the ARMGUARD desktop app root folder (next to desktop_app.py).',
+        '# Place this file in the ARMGUARD installation folder (same folder as ARMGUARD_RDS.exe).',
         '# Keep this file secret \u2014 it contains your sync API token.',
         '',
         '# Django core',
@@ -2114,8 +2117,62 @@ def desktop_env_download(request):
         'SYNC_INTERVAL_MINUTES=5',
         '',
     ]
+    env_content = '\n'.join(lines).encode('utf-8')
 
-    content = '\n'.join(lines)
-    response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+    s = SystemSettings.get()
+    has_installer = bool(s.desktop_installer and s.desktop_installer.name)
+
+    if has_installer:
+        # Return a ZIP with the installer + .env so the user runs one file.
+        try:
+            installer_path = s.desktop_installer.path
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr('.env', env_content)
+                zf.write(installer_path, 'ARMGUARD_RDS_Setup.exe')
+            zip_buffer.seek(0)
+            response = HttpResponse(zip_buffer.read(), content_type='application/zip')
+            response['Content-Disposition'] = 'attachment; filename="ARMGUARD_RDS_Package.zip"'
+            return response
+        except Exception:
+            # Installer file missing from disk — fall through to .env only.
+            pass
+
+    # Fallback: installer not uploaded yet, return plain .env.
+    response = HttpResponse(env_content, content_type='text/plain; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename=".env"'
     return response
+
+
+def desktop_installer_upload(request):
+    """Upload ARMGUARD_RDS_Setup.exe to the server (superuser only).
+
+    Stores it in SystemSettings so future calls to desktop_env_download
+    can bundle the installer and .env into a single downloadable ZIP.
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied.')
+        return redirect('system-settings')
+    if request.method != 'POST':
+        return redirect('system-settings')
+
+    from .models import SystemSettings
+    f = request.FILES.get('installer_file')
+    if not f:
+        messages.error(request, 'No file selected.')
+        return redirect('system-settings')
+    if not f.name.lower().endswith('.exe'):
+        messages.error(request, 'Only .exe files are accepted.')
+        return redirect('system-settings')
+
+    s = SystemSettings.get()
+    # Delete the previous installer to avoid orphaned files.
+    if s.desktop_installer:
+        try:
+            s.desktop_installer.delete(save=False)
+        except Exception:
+            pass
+    s.desktop_installer = f
+    s.save(update_fields=['desktop_installer'])
+    messages.success(request, f'Installer uploaded: {f.name}')
+    return redirect('system-settings')

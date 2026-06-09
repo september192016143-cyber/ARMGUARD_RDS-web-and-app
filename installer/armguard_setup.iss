@@ -49,6 +49,10 @@ Name: "desktopicon"; Description: "Create a &Desktop shortcut"; GroupDescription
 [Files]
 ; Copy the entire PyInstaller output folder
 Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Auto-copy .env if it is present in the same folder as this installer.
+; When the user extracts ARMGUARD_RDS_Package.zip (downloaded from the server),
+; the .env is extracted alongside Setup.exe and gets placed automatically here.
+Source: "{src}\.env"; DestDir: "{app}"; Flags: external skipifsourcedoesntexist
 
 [Icons]
 ; Start Menu
@@ -71,14 +75,9 @@ begin
   if CurStep = ssPostInstall then
   begin
     InfoMsg :=
-      'ARMGUARD RDS has been installed.' + #13#10 + #13#10 +
-      'IMPORTANT — Before launching the app:' + #13#10 +
-      '  1. Download the .env file from your ARMGUARD server' + #13#10 +
-      '     (Settings > Desktop App Setup > Download .env).' + #13#10 +
-      '  2. Place the .env file in the installation folder:' + #13#10 +
-      '     ' + ExpandConstant('{app}') + #13#10 +
-      '     OR in your user data folder:' + #13#10 +
-      '     ' + ExpandConstant('{localappdata}') + '\ARMGUARD RDS\' + #13#10 + #13#10 +
+      'ARMGUARD RDS has been installed successfully.' + #13#10 + #13#10 +
+      'Launch the app using the Desktop shortcut.' + #13#10 +
+      'It will automatically sync with the server every 5 minutes.' + #13#10 + #13#10 +
       'Database and media files are stored in:' + #13#10 +
       '     ' + ExpandConstant('{localappdata}') + '\ARMGUARD RDS\' + #13#10 +
       '(This folder survives app upgrades and uninstalls.)';
