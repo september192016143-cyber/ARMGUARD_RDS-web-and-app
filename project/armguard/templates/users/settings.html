@@ -896,7 +896,7 @@
   </div>
   <p style="font-size:.84rem;color:var(--muted);margin-bottom:1rem">
     <i class="fa-solid fa-circle-info" style="color:#7c3aed"></i>
-    Install the ARMGUARD desktop app on any Windows PC and connect it to this server for automatic bidirectional sync.
+    Install the ARMGUARD desktop app on any Windows PC using the <strong>ARMGUARD_RDS_Setup.exe</strong> installer (no Python or Git required).
     The <strong>Download .env</strong> button generates a ready-to-use configuration file pre-filled with this server&rsquo;s
     URL and a sync API token linked to your superuser account.
   </p>
@@ -930,22 +930,21 @@
   <div style="border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;background:var(--surface2);font-size:.83rem">
     <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Installation Steps (Windows PC)</div>
     <ol style="margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem;color:var(--text)">
-      <li>Install <strong>Python 3.12</strong> from <code>python.org</code> (check <em>Add to PATH</em>)</li>
-      <li>Clone or copy the ARMGUARD repo to the PC:
-        <code style="display:inline-block;margin-top:.2rem;padding:.1rem .4rem;background:var(--surface);border-radius:4px">
-          git clone https://github.com/september192016143-cyber/ARMGUARD_RDS-web-and-app.git
-        </code>
+      <li>Click <strong>Download .env</strong> above to get your configuration file.</li>
+      <li>Download the installer from the IT officer or shared drive:
+        <code style="display:inline-block;margin-top:.2rem;padding:.1rem .4rem;background:var(--surface);border-radius:4px">ARMGUARD_RDS_Setup.exe</code>
       </li>
-      <li>Create the virtual environment and install dependencies:
-        <code style="display:block;margin-top:.2rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;white-space:pre">cd ARMGUARD_RDS-web-and-app
-python -m venv venv
-venv\Scripts\pip install -r requirements.txt</code>
+      <li>Run <strong>ARMGUARD_RDS_Setup.exe</strong> &mdash; follow the wizard (no Python or Git required).</li>
+      <li>Place the downloaded <strong>.env</strong> file in the installation folder:
+        <code style="display:block;margin-top:.2rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;white-space:pre">C:\Program Files\ARMGUARD RDS\   (or wherever you chose during install)</code>
       </li>
-      <li>Place the downloaded <strong>.env</strong> file in the app root folder (same folder as <code>desktop_app.py</code>)</li>
-      <li>Double-click <strong>create_shortcut.bat</strong> once &mdash; this places an <strong>ARMGUARD RDS</strong> shortcut with the app icon on the Desktop</li>
-      <li>Use the Desktop shortcut (or <strong>run_desktop.bat</strong>) to launch &mdash; the app will sync automatically every 5 minutes</li>
+      <li>Launch <strong>ARMGUARD RDS</strong> from the Desktop shortcut &mdash; the app syncs automatically every 5 minutes.</li>
     </ol>
-    <div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(239,68,68,.07);border-radius:6px;border:1px solid rgba(239,68,68,.2);font-size:.79rem;color:var(--muted)">
+    <div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(59,130,246,.07);border-radius:6px;border:1px solid rgba(59,130,246,.2);font-size:.79rem;color:var(--muted)">
+      <i class="fa-solid fa-circle-info" style="color:#3b82f6"></i>
+      Your database and media files are stored in <code>%LOCALAPPDATA%\ARMGUARD RDS\</code> and are <strong>never overwritten</strong> when you upgrade the app.
+    </div>
+    <div style="margin-top:.5rem;padding:.5rem .75rem;background:rgba(239,68,68,.07);border-radius:6px;border:1px solid rgba(239,68,68,.2);font-size:.79rem;color:var(--muted)">
       <i class="fa-solid fa-lock" style="color:#dc2626"></i>
       <strong>Security:</strong> The downloaded .env contains a live API token. Treat it like a password &mdash; do not share or commit it to version control.
     </div>
