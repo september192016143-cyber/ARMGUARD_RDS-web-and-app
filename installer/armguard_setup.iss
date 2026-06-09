@@ -49,10 +49,9 @@ Name: "desktopicon"; Description: "Create a &Desktop shortcut"; GroupDescription
 [Files]
 ; Copy the entire PyInstaller output folder
 Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Auto-copy .env if it is present in the same folder as this installer.
-; When the user extracts ARMGUARD_RDS_Package.zip (downloaded from the server),
-; the .env is extracted alongside Setup.exe and gets placed automatically here.
-Source: "{src}\.env"; DestDir: "{app}"; Flags: external skipifsourcedoesntexist
+; Embed the .env from the repo root at BUILD TIME so the installer is fully
+; self-contained.  Place your .env in the repo root before running build_installer.bat.
+Source: "{#BuildDir}\..\.env"; DestDir: "{app}"; Flags: skipifsourcedoesntexist
 
 [Icons]
 ; Start Menu

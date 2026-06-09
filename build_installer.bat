@@ -33,7 +33,17 @@ if not exist "%PYTHON%" (
     echo  Run first:  python -m venv venv  ^&^&  venv\Scripts\pip install -r requirements.txt
     pause & exit /b 1
 )
-
+:: ── Check for .env (needed to bundle config into the installer) ─────────────
+echo  [0/3] Checking for .env...
+if not exist "%ROOT%.env" (
+    echo  [WARN]  No .env found at: %ROOT%.env
+    echo          The installer will be built WITHOUT a bundled configuration.
+    echo          To bundle the config, download .env from the server Settings page
+    echo          and place it in the repo root, then re-run this script.
+    echo.
+) else (
+    echo        Found .env — will be embedded in the installer.
+)
 :: ── Install / upgrade PyInstaller ─────────────────────────────────────────────
 echo  [1/3] Installing PyInstaller...
 "%PIP%" install --quiet --upgrade pyinstaller pyinstaller-hooks-contrib
@@ -66,9 +76,8 @@ echo  ============================================
 echo   SUCCESS
 echo  ============================================
 echo   Installer: installer\Output\ARMGUARD_RDS_Setup.exe
-echo   Distribute that file to Windows PCs.
-echo   Users run Setup.exe, then place their .env
-echo   in the installation folder before launching.
+echo   Upload this file to the server via Settings ^> Desktop App Setup.
+echo   Users download and run it \u2014 no ZIP, no manual config.
 echo  ============================================
 echo.
 pause

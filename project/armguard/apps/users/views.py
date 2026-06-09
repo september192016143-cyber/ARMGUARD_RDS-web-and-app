@@ -2075,26 +2075,43 @@ def cleanup_orphaned_personnel_media(request):
 @require_POST
 @login_required
 def desktop_env_download(request):
-    """Generate and return a desktop app package for the requesting superuser.
+    """Serve the desktop app installer or a plain .env for the requesting superuser.
 
-    If an installer .exe has been uploaded to SystemSettings.desktop_installer,
-    returns a ZIP containing:
-      - ARMGUARD_RDS_Setup.exe  (the installer)
-      - .env  (pre-configured with this server's URL and the user's sync token)
+    If an installer .exe has been uploaded to SystemSettings.desktop_installer
+    (built with the .env already embedded at compile time), serve it directly as
+    a single .exe download — no ZIP, no manual config needed.
 
-    If no installer is uploaded yet, falls back to returning just the .env file
-    so operators can still configure manually if needed.
+    If no installer is uploaded yet, fall back to returning just the .env so the
+    admin can download it, bundle it into a new build, and upload the result.
     """
     if not request.user.is_superuser:
         messages.error(request, 'Access denied.')
         return redirect('system-settings')
 
-    import io
-    import zipfile
+    from .models import SystemSettings
+    s = SystemSettings.get()
+
+    if s.desktop_installer and s.desktop_installer.name:
+        # Serve the pre-built installer directly — it already contains the .env.
+        try:
+            import mimetypes
+            with open(s.desktop_installer.path, 'rb') as fh:
+                data = fh.read()
+            response = HttpResponse(
+                data,
+                content_type='application/vnd.microsoft.portable-executable',
+            )
+            response['Content-Disposition'] = 'attachment; filename="ARMGUARD_RDS_Setup.exe"'
+            return response
+        except Exception:
+            # File missing from disk — fall through to .env fallback.
+            pass
+
+    # Fallback: no installer uploaded yet — return the .env so the admin can
+    # place it in the repo, rebuild, and upload the complete installer.
     import secrets as _secrets
     from datetime import datetime as _dt
     from rest_framework.authtoken.models import Token as _Token
-    from .models import SystemSettings
 
     token, _created = _Token.objects.get_or_create(user=request.user)
     server_url = f"{request.scheme}://{request.get_host()}"
@@ -2103,7 +2120,7 @@ def desktop_env_download(request):
     lines = [
         '# ARMGUARD RDS \u2014 Desktop Application Environment',
         f'# Generated: {_dt.now().strftime("%Y-%m-%d %H:%M")} by {request.user.username}',
-        '# Place this file in the ARMGUARD installation folder (same folder as ARMGUARD_RDS.exe).',
+        '# Place this file in the repo root, then run build_installer.bat to embed it.',
         '# Keep this file secret \u2014 it contains your sync API token.',
         '',
         '# Django core',
@@ -2117,29 +2134,8 @@ def desktop_env_download(request):
         'SYNC_INTERVAL_MINUTES=5',
         '',
     ]
-    env_content = '\n'.join(lines).encode('utf-8')
-
-    s = SystemSettings.get()
-    has_installer = bool(s.desktop_installer and s.desktop_installer.name)
-
-    if has_installer:
-        # Return a ZIP with the installer + .env so the user runs one file.
-        try:
-            installer_path = s.desktop_installer.path
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr('.env', env_content)
-                zf.write(installer_path, 'ARMGUARD_RDS_Setup.exe')
-            zip_buffer.seek(0)
-            response = HttpResponse(zip_buffer.read(), content_type='application/zip')
-            response['Content-Disposition'] = 'attachment; filename="ARMGUARD_RDS_Package.zip"'
-            return response
-        except Exception:
-            # Installer file missing from disk — fall through to .env only.
-            pass
-
-    # Fallback: installer not uploaded yet, return plain .env.
-    response = HttpResponse(env_content, content_type='text/plain; charset=utf-8')
+    content = '\n'.join(lines).encode('utf-8')
+    response = HttpResponse(content, content_type='text/plain; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename=".env"'
     return response
 

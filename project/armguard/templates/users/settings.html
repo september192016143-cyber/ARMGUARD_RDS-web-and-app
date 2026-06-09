@@ -946,9 +946,9 @@
     {% if installer_exists %}
       <button type="submit" class="btn btn-sm"
               style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
-        <i class="fa-solid fa-download"></i> Download Installation Package (.zip)
+        <i class="fa-solid fa-download"></i> Download ARMGUARD_RDS_Setup.exe
       </button>
-      <span style="font-size:.78rem;color:var(--muted);margin-left:.5rem">Includes installer + pre-configured .env</span>
+      <span style="font-size:.78rem;color:var(--muted);margin-left:.5rem">.env pre-configured &mdash; just run the installer</span>
     {% else %}
       <button type="submit" class="btn btn-sm"
               style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
@@ -962,14 +962,14 @@
     <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Installation Steps (Windows PC)</div>
     <ol style="margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem;color:var(--text)">
       {% if installer_exists %}
-        <li>Click <strong>Download Installation Package (.zip)</strong> above.</li>
-        <li>Extract the ZIP to any folder on the Windows PC.</li>
-        <li>Double-click <strong>ARMGUARD_RDS_Setup.exe</strong> &mdash; the wizard installs the app and places the .env automatically. No Python or Git required.</li>
+        <li>Click <strong>Download ARMGUARD_RDS_Setup.exe</strong> above.</li>
+        <li>Run <strong>ARMGUARD_RDS_Setup.exe</strong> on the Windows PC &mdash; the wizard installs the app with the server config already embedded. No Python, Git, or manual setup required.</li>
         <li>Launch <strong>ARMGUARD RDS</strong> from the Desktop shortcut &mdash; the app syncs automatically every 5 minutes.</li>
       {% else %}
-        <li>Upload <code>ARMGUARD_RDS_Setup.exe</code> using the <strong>Upload Installer</strong> button above (admin, once).</li>
-        <li>Click <strong>Download Installation Package (.zip)</strong> &mdash; it will bundle the installer and .env together.</li>
-        <li>Extract the ZIP, run <strong>ARMGUARD_RDS_Setup.exe</strong>, and launch from the Desktop shortcut.</li>
+        <li>Click <strong>Download .env</strong> above and place the file in the repo root on your build machine.</li>
+        <li>Run <code>build_installer.bat</code> &mdash; it embeds the .env into the installer.</li>
+        <li>Upload the resulting <code>installer\Output\ARMGUARD_RDS_Setup.exe</code> using <strong>Upload Installer</strong> above.</li>
+        <li>Future users will get a single <strong>Download ARMGUARD_RDS_Setup.exe</strong> button with everything pre-configured.</li>
       {% endif %}
     </ol>
     <div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(59,130,246,.07);border-radius:6px;border:1px solid rgba(59,130,246,.2);font-size:.79rem;color:var(--muted)">
