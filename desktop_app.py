@@ -26,9 +26,29 @@ import time
 from pathlib import Path
 
 # ── Resolve project paths ──────────────────────────────────────────────────────
-ROOT_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = ROOT_DIR / "project"
-ENV_FILE = ROOT_DIR / ".env"
+# When packaged by PyInstaller (frozen=True):
+#   sys.executable  → <install_dir>\ARMGUARD_RDS.exe
+#   sys._MEIPASS    → <install_dir>\_internal\   (bundled Python code + data)
+#
+# User-writable data (db.sqlite3, media/, logs/, .env) lives in <install_dir>
+# so that upgrades (which overwrite _internal/) never destroy live data.
+#
+# When running from source (development):
+#   ROOT_DIR = repo root, PROJECT_DIR = repo/project, DATA_DIR = repo/project
+
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _exe_dir    = Path(sys.executable).parent
+    ROOT_DIR    = _exe_dir
+    PROJECT_DIR = Path(sys._MEIPASS) / 'project'   # bundled Django code (read-only)
+    DATA_DIR    = _exe_dir / 'data'                 # db, media, logs (writable, survives upgrades)
+    sys.path.insert(0, str(Path(sys._MEIPASS) / 'project'))
+else:
+    ROOT_DIR    = Path(__file__).resolve().parent
+    PROJECT_DIR = ROOT_DIR / 'project'
+    DATA_DIR    = PROJECT_DIR                       # same as project/ in dev mode
+
+ENV_FILE = ROOT_DIR / '.env'
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ── Bootstrap .env if it doesn't exist ────────────────────────────────────────
@@ -146,6 +166,9 @@ def _setup_django(port: int) -> None:
     os.environ["CSRF_TRUSTED_ORIGINS"] = (
         f"http://127.0.0.1:{port},http://localhost:{port}"
     )
+    # Pass the writable data directory to desktop.py so db/media/logs are stored
+    # outside _internal/ when running as a PyInstaller bundle.
+    os.environ["ARMGUARD_DATA_DIR"] = str(DATA_DIR)
     import django
     django.setup()
 

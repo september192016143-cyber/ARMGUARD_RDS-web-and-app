@@ -48,3 +48,26 @@ SYNC_SERVER_URL       = os.environ.get('SYNC_SERVER_URL', '')
 SYNC_API_TOKEN        = os.environ.get('SYNC_API_TOKEN', '')
 SYNC_INTERVAL_MINUTES = int(os.environ.get('SYNC_INTERVAL_MINUTES', '5'))
 SYNC_ENABLED          = os.environ.get('SYNC_ENABLED', 'True').strip().lower() not in ('false', '0', 'no')
+
+# ── PyInstaller bundle: redirect writable data outside _internal/ ─────────────
+# When the app is packaged as a .exe, desktop_app.py sets ARMGUARD_DATA_DIR to
+# <install_dir>/data/ so that database, media, and logs survive app upgrades.
+# In development mode this variable is not set and BASE_DIR paths are used as-is.
+import sys as _sys
+_data_dir_env = os.environ.get('ARMGUARD_DATA_DIR', '')
+if _data_dir_env:
+    from pathlib import Path as _Path
+    _DATA = _Path(_data_dir_env)
+    _DATA.mkdir(parents=True, exist_ok=True)
+    (_DATA / 'media').mkdir(exist_ok=True)
+    (_DATA / 'logs').mkdir(exist_ok=True)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': _DATA / 'db.sqlite3',
+            'OPTIONS': {'timeout': 30},
+        }
+    }
+    MEDIA_ROOT = _DATA / 'media'
+    LOG_DIR    = _DATA / 'logs'
+
