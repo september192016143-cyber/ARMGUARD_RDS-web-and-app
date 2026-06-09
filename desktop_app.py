@@ -156,6 +156,10 @@ def main() -> None:
 
     import webview  # type: ignore[import-untyped]
 
+    # Use the project's favicon as the window/taskbar icon.
+    _icon_path = ROOT_DIR / "project" / "armguard" / "static" / "images" / "favicon.ico"
+    _icon = str(_icon_path) if _icon_path.exists() else None
+
     webview.create_window(
         "ARMGUARD RDS — Records & Dispensing System",
         url=url,
@@ -165,6 +169,7 @@ def main() -> None:
         resizable=True,
         # Prompt the user before closing to prevent accidental data loss mid-form.
         confirm_close=True,
+        **(({'icon': _icon}) if _icon else {}),
     )
     # gui=None lets pywebview pick the best available renderer.
     # On Windows 10/11 this is Edge WebView2 (pre-installed).
