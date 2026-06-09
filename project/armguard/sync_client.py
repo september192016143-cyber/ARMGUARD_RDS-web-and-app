@@ -41,7 +41,16 @@ from django.db import transaction as db_transaction
 logger = logging.getLogger('armguard.sync')
 
 ROOT_DIR = Path(__file__).resolve().parent
-SYNC_STATE_FILE = ROOT_DIR / '.sync_state.json'
+# When running as a PyInstaller bundle, ARMGUARD_DATA_DIR points to the writable
+# user data directory (LOCALAPPDATA\ARMGUARD RDS).  Store the sync state there so
+# it survives app upgrades (which overwrite _internal/).  Falls back to the
+# source directory in development mode.
+_armguard_data = os.environ.get('ARMGUARD_DATA_DIR', '')
+SYNC_STATE_FILE = (
+    Path(_armguard_data) / '.sync_state.json'
+    if _armguard_data
+    else ROOT_DIR / '.sync_state.json'
+)
 
 _EPOCH_STR = '1970-01-01T00:00:00Z'
 
@@ -64,9 +73,24 @@ def _save_state(state: dict) -> None:
 # ── HTTP helper ───────────────────────────────────────────────────────────────
 
 def _make_session(token: str):
-    """Return a requests.Session pre-configured with the API token header."""
+    """Return a requests.Session pre-configured with the API token header.
+
+    SSL verification is disabled by default so the session works with the
+    self-signed certificate used on the LAN server (10.100.5.52).  Set
+    SYNC_SSL_VERIFY=True in .env to re-enable verification for servers with
+    a proper CA-signed certificate.
+    """
     import requests  # type: ignore[import-untyped]
+    import urllib3   # type: ignore[import-untyped]
+
+    _ssl_verify = os.environ.get('SYNC_SSL_VERIFY', 'False').strip().lower() not in ('false', '0', 'no')
+    if not _ssl_verify:
+        # Suppress the InsecureRequestWarning that urllib3 prints for every
+        # request when verify=False — it would flood the log on each sync cycle.
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
     s = requests.Session()
+    s.verify = _ssl_verify
     s.headers.update({
         'Authorization': f'Token {token}',
         'Content-Type':  'application/json',
