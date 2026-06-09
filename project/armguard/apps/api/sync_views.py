@@ -20,6 +20,7 @@ import logging
 from datetime import datetime, timezone as dt_tz
 
 from django.db import transaction as db_transaction
+from django.db.models import Q
 from django.utils.dateparse import parse_datetime
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -30,6 +31,7 @@ from armguard.apps.personnel.models import Personnel
 from armguard.apps.transactions.models import Transaction, TransactionLogs
 
 from .sync_serializers import (
+    _LOG_TXN_FK_FIELDS,
     SyncPersonnelSerializer,
     SyncPistolSerializer, SyncRifleSerializer,
     SyncMagazineSerializer, SyncAmmunitionSerializer, SyncAccessorySerializer,
@@ -84,9 +86,17 @@ class SyncPullView(APIView):
 
         # Operational data — only changes since `since`.
         transactions = Transaction.objects.filter(updated_at__gte=since).order_by('timestamp')
-        logs         = TransactionLogs.objects.filter(
-            transaction__updated_at__gte=since
-        ).order_by('id')
+        # TransactionLogs has 20 separate FK columns to Transaction; there is no
+        # single 'transaction' FK field.  Build an OR filter across all FK columns
+        # to find logs associated with the transactions we're returning.
+        txn_pks = list(transactions.values_list('transaction_id', flat=True))
+        if txn_pks:
+            _log_q = Q()
+            for _fk in _LOG_TXN_FK_FIELDS:
+                _log_q |= Q(**{f'{_fk}__in': txn_pks})
+            logs = TransactionLogs.objects.filter(_log_q).distinct().order_by('record_id')
+        else:
+            logs = TransactionLogs.objects.none()
 
         payload = {
             'personnel':    SyncPersonnelSerializer(personnel,   many=True).data,
@@ -171,28 +181,7 @@ class SyncPushView(APIView):
                 # TransactionLogs PK is `record_id` (AutoField).
                 # Transaction FK fields are resolved via `_transaction_sync_uuids`
                 # because auto-increment PKs differ between server and desktop.
-                _LOG_TXN_FK_FIELDS = [
-                    'withdrawal_pistol_transaction_id',
-                    'withdrawal_rifle_transaction_id',
-                    'withdrawal_pistol_magazine_transaction_id',
-                    'withdrawal_rifle_magazine_transaction_id',
-                    'withdrawal_pistol_ammunition_transaction_id',
-                    'withdrawal_rifle_ammunition_transaction_id',
-                    'withdrawal_pistol_holster_transaction_id',
-                    'withdrawal_magazine_pouch_transaction_id',
-                    'withdrawal_rifle_sling_transaction_id',
-                    'withdrawal_bandoleer_transaction_id',
-                    'return_pistol_transaction_id',
-                    'return_rifle_transaction_id',
-                    'return_pistol_magazine_transaction_id',
-                    'return_rifle_magazine_transaction_id',
-                    'return_pistol_ammunition_transaction_id',
-                    'return_rifle_ammunition_transaction_id',
-                    'return_pistol_holster_transaction_id',
-                    'return_magazine_pouch_transaction_id',
-                    'return_rifle_sling_transaction_id',
-                    'return_bandoleer_transaction_id',
-                ]
+                # _LOG_TXN_FK_FIELDS is imported from sync_serializers at module level.
                 for rec in log_records:
                     record_id = rec.get('record_id')
                     if not record_id:

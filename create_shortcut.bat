@@ -30,7 +30,7 @@ powershell -NoProfile -Command ^
   "$ws = New-Object -ComObject WScript.Shell; " ^
   "$s  = $ws.CreateShortcut('%SHORTCUT%'); " ^
   "$s.TargetPath      = '%PYTHONW%'; " ^
-  "$s.Arguments       = '\""%SCRIPT%\"\"'; " ^
+  "$s.Arguments       = ([char]34 + '%SCRIPT%' + [char]34); " ^
   "$s.WorkingDirectory = '%APP_DIR%'; " ^
   "$s.IconLocation    = '%ICON%,0'; " ^
   "$s.Description     = 'ARMGUARD RDS - Records and Dispensing System'; " ^
