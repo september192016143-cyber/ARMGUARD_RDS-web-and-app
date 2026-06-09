@@ -40,15 +40,23 @@ if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     _exe_dir    = Path(sys.executable).parent
     ROOT_DIR    = _exe_dir
     PROJECT_DIR = Path(sys._MEIPASS) / 'project'   # bundled Django code (read-only)
-    DATA_DIR    = _exe_dir / 'data'                 # db, media, logs (writable, survives upgrades)
+    # Store user data in %LOCALAPPDATA%\ARMGUARD RDS\ so it is always writable
+    # even when the app is installed system-wide into Program Files (which is
+    # read-only for normal users).  This directory survives upgrades and uninstalls.
+    _localappdata = Path(os.environ.get('LOCALAPPDATA', os.environ.get('APPDATA', str(_exe_dir))))
+    DATA_DIR    = _localappdata / 'ARMGUARD RDS'
+    # .env lives alongside the exe so admins can copy it machine-wide, but we
+    # fall back to the data dir so users who placed it there are also supported.
+    ENV_FILE    = (_exe_dir / '.env') if (_exe_dir / '.env').exists() else DATA_DIR / '.env'
     sys.path.insert(0, str(Path(sys._MEIPASS) / 'project'))
 else:
     ROOT_DIR    = Path(__file__).resolve().parent
     PROJECT_DIR = ROOT_DIR / 'project'
     DATA_DIR    = PROJECT_DIR                       # same as project/ in dev mode
-
-ENV_FILE = ROOT_DIR / '.env'
+    ENV_FILE    = ROOT_DIR / '.env'
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure ENV_FILE's parent exists (DATA_DIR may be different from ROOT_DIR when frozen).
+ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 # ── Bootstrap .env if it doesn't exist ────────────────────────────────────────
@@ -61,15 +69,20 @@ def _ensure_env() -> None:
     if ENV_FILE.exists():
         return
 
+    # When frozen and the install-dir .env doesn't exist, write to DATA_DIR.
+    _write_target = ENV_FILE if not (getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')) \
+        else DATA_DIR / '.env'
+
     print("[ARMGUARD] No .env file found — generating one automatically.")
     # secrets.token_urlsafe produces a cryptographically random URL-safe string.
     secret_key = secrets.token_urlsafe(50)
-    ENV_FILE.write_text(
+    _write_target.parent.mkdir(parents=True, exist_ok=True)
+    _write_target.write_text(
         f"DJANGO_SECRET_KEY={secret_key}\n"
         f"DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost\n",
         encoding="utf-8",
     )
-    print(f"[ARMGUARD] .env written to: {ENV_FILE}")
+    print(f"[ARMGUARD] .env written to: {_write_target}")
 
 
 # ── Find a free TCP port on loopback ──────────────────────────────────────────
@@ -177,9 +190,12 @@ def _setup_django(port: int) -> None:
     # FIX-1: Load .env from the correct path (alongside the exe) BEFORE django.setup()
     # so that base.py's load_dotenv() finds the vars already set and is a no-op.
     # Critical when frozen: base.py uses BASE_DIR.parent (= _MEIPASS/) for dotenv,
-    # but the actual .env sits in ROOT_DIR (= exe directory).
+    # but the actual .env sits in ROOT_DIR (= exe directory) or DATA_DIR.
     from dotenv import load_dotenv as _load_dotenv
     _load_dotenv(str(ENV_FILE), override=False)
+    # Also load from DATA_DIR as fallback (user may have placed .env there).
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        _load_dotenv(str(DATA_DIR / '.env'), override=False)
 
     import django
     django.setup()

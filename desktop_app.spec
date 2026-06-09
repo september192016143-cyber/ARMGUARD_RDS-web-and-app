@@ -30,7 +30,9 @@ qrcode_datas,           qrcode_bins,           qrcode_hidden           = collect
 fitz_datas,             fitz_bins,             fitz_hidden             = collect_all('fitz')  # PyMuPDF
 django_otp_datas,       django_otp_bins,       django_otp_hidden       = collect_all('django_otp')
 gspread_datas,          gspread_bins,          gspread_hidden          = collect_all('gspread')
-google_datas,           google_bins,           google_hidden           = collect_all('google')
+google_auth_datas,      google_auth_bins,      google_auth_hidden      = collect_all('google.auth')
+google_oauth2_datas,    google_oauth2_bins,    google_oauth2_hidden    = collect_all('google.oauth2')
+openpyxl_datas,         openpyxl_bins,         openpyxl_hidden         = collect_all('openpyxl')
 
 # ── App-specific data files ────────────────────────────────────────────────────
 app_datas = [
@@ -56,19 +58,23 @@ all_datas = (
     + fitz_datas
     + django_otp_datas
     + gspread_datas
-    + google_datas
+    + google_auth_datas
+    + google_oauth2_datas
+    + openpyxl_datas
 )
 
 all_binaries = (
     django_bins + drf_bins + drf_spec_bins + webview_bins + whitenoise_bins
     + dotenv_bins + PIL_bins + qrcode_bins + fitz_bins
-    + django_otp_bins + gspread_bins + google_bins
+    + django_otp_bins + gspread_bins
+    + google_auth_bins + google_oauth2_bins + openpyxl_bins
 )
 
 hidden_imports = (
     django_hidden + drf_hidden + drf_spec_hidden + webview_hidden + whitenoise_hidden
     + dotenv_hidden + PIL_hidden + qrcode_hidden + fitz_hidden
-    + django_otp_hidden + gspread_hidden + google_hidden + [
+    + django_otp_hidden + gspread_hidden
+    + google_auth_hidden + google_oauth2_hidden + openpyxl_hidden + [
         # Django internals often missed by the analyser
         'django.template.defaulttags',
         'django.template.defaultfilters',
@@ -80,19 +86,39 @@ hidden_imports = (
         # DRF
         'rest_framework.authtoken',
         'rest_framework.authtoken.admin',
-        # Our apps (explicit so auto-discovery works inside the bundle)
+        # Our apps — all sub-modules loaded dynamically by Django (INSTALLED_APPS,
+        # MIDDLEWARE, AUTH_PASSWORD_VALIDATORS, context_processors strings)
         'armguard',
         'armguard.wsgi',
+        'armguard.context_processors',
+        'armguard.storage',
+        'armguard.sync_client',
         'armguard.settings',
         'armguard.settings.desktop',
+        # Apps
+        'armguard.apps.dashboard',
         'armguard.apps.users',
+        'armguard.apps.users.validators',
         'armguard.apps.inventory',
         'armguard.apps.personnel',
         'armguard.apps.transactions',
         'armguard.apps.api',
+        'armguard.apps.api.serializers',
+        'armguard.apps.api.sync_serializers',
+        'armguard.apps.api.sync_views',
         'armguard.apps.camera',
+        'armguard.apps.print',
+        'armguard.apps.print.pdf_filler',
+        'armguard.apps.profile',
+        # Middleware (loaded as strings in MIDDLEWARE setting)
         'armguard.middleware',
+        'armguard.middleware.session',
+        'armguard.middleware.mfa',
+        'armguard.middleware.security',
+        'armguard.middleware.activity',
+        # Utils
         'armguard.utils',
+        'armguard.utils.permissions',
         # WSGI server
         'waitress',
         'waitress.task',

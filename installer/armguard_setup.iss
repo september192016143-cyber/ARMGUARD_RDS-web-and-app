@@ -76,8 +76,12 @@ begin
       '  1. Download the .env file from your ARMGUARD server' + #13#10 +
       '     (Settings > Desktop App Setup > Download .env).' + #13#10 +
       '  2. Place the .env file in the installation folder:' + #13#10 +
-      '     ' + ExpandConstant('{app}') + #13#10 + #13#10 +
-      'The app will NOT sync with the server until the .env is in place.';
+      '     ' + ExpandConstant('{app}') + #13#10 +
+      '     OR in your user data folder:' + #13#10 +
+      '     ' + ExpandConstant('{localappdata}') + '\ARMGUARD RDS\' + #13#10 + #13#10 +
+      'Database and media files are stored in:' + #13#10 +
+      '     ' + ExpandConstant('{localappdata}') + '\ARMGUARD RDS\' + #13#10 +
+      '(This folder survives app upgrades and uninstalls.)';
     MsgBox(InfoMsg, mbInformation, MB_OK);
   end;
 end;
