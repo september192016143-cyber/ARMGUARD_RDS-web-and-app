@@ -887,7 +887,69 @@
       data-url="{% url 'simulate-orex-status' %}"
       data-reset-url="{% url 'simulate-orex-reset' %}"
       hidden></span>
+<!-- ── Desktop App Setup ────────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem;border:1.5px solid #6f42c133">
+  <div class="card-header" style="background:rgba(111,66,193,.07)">
+    <span class="card-title" style="color:#7c3aed">
+      <i class="fa-solid fa-display"></i> Desktop App Setup
+    </span>
+  </div>
+  <p style="font-size:.84rem;color:var(--muted);margin-bottom:1rem">
+    <i class="fa-solid fa-circle-info" style="color:#7c3aed"></i>
+    Install the ARMGUARD desktop app on any Windows PC and connect it to this server for automatic bidirectional sync.
+    The <strong>Download .env</strong> button generates a ready-to-use configuration file pre-filled with this server&rsquo;s
+    URL and a sync API token linked to your superuser account.
+  </p>
 
+  <!-- Token status badge -->
+  <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:1rem;font-size:.84rem">
+    <span style="font-weight:600">Sync API Token:</span>
+    {% if sync_token_exists %}
+      <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:12px;background:rgba(34,197,94,.12);color:#16a34a;font-size:.78rem;font-weight:700">
+        <i class="fa-solid fa-circle-check"></i> Token exists
+      </span>
+      <span style="color:var(--muted);font-size:.78rem">Click Download to generate a fresh .env with the current token.</span>
+    {% else %}
+      <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .65rem;border-radius:12px;background:rgba(239,68,68,.12);color:#dc2626;font-size:.78rem;font-weight:700">
+        <i class="fa-solid fa-circle-exclamation"></i> No token yet
+      </span>
+      <span style="color:var(--muted);font-size:.78rem">A token will be created automatically when you download the .env.</span>
+    {% endif %}
+  </div>
+
+  <!-- Download button -->
+  <form method="post" action="{% url 'settings-desktop-env' %}" style="margin-bottom:1.25rem">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm"
+            style="background:#7c3aed;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem">
+      <i class="fa-solid fa-download"></i> Download .env for Desktop App
+    </button>
+  </form>
+
+  <!-- Installation steps -->
+  <div style="border:1px solid var(--border);border-radius:8px;padding:.9rem 1rem;background:var(--surface2);font-size:.83rem">
+    <div style="font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.65rem">Installation Steps (Windows PC)</div>
+    <ol style="margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem;color:var(--text)">
+      <li>Install <strong>Python 3.12</strong> from <code>python.org</code> (check <em>Add to PATH</em>)</li>
+      <li>Clone or copy the ARMGUARD repo to the PC:
+        <code style="display:inline-block;margin-top:.2rem;padding:.1rem .4rem;background:var(--surface);border-radius:4px">
+          git clone https://github.com/september192016143-cyber/ARMGUARD_RDS-web-and-app.git
+        </code>
+      </li>
+      <li>Create the virtual environment and install dependencies:
+        <code style="display:block;margin-top:.2rem;padding:.25rem .5rem;background:var(--surface);border-radius:4px;white-space:pre">cd ARMGUARD_RDS-web-and-app
+python -m venv venv
+venv\Scripts\pip install -r requirements.txt</code>
+      </li>
+      <li>Place the downloaded <strong>.env</strong> file in the app root folder (same folder as <code>desktop_app.py</code>)</li>
+      <li>Double-click <strong>run_desktop.bat</strong> to launch &mdash; the app will sync automatically every 5 minutes</li>
+    </ol>
+    <div style="margin-top:.75rem;padding:.5rem .75rem;background:rgba(239,68,68,.07);border-radius:6px;border:1px solid rgba(239,68,68,.2);font-size:.79rem;color:var(--muted)">
+      <i class="fa-solid fa-lock" style="color:#dc2626"></i>
+      <strong>Security:</strong> The downloaded .env contains a live API token. Treat it like a password &mdash; do not share or commit it to version control.
+    </div>
+  </div>
+</div>
 <!-- ── Manual Database Backup ───────────────────────────────────────────── -->
 <div class="card mb-2" style="max-width:980px;margin-top:1.5rem;border:1.5px solid #0d6efd33">
   <div class="card-header" style="background:rgba(13,110,253,.07)">

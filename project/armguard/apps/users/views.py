@@ -10,7 +10,7 @@ from django.urls import reverse_lazy
 from django.views import View
 from django import forms
 from django.shortcuts import redirect, render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.conf import settings as django_settings
 from django.contrib.auth.decorators import login_required
@@ -750,6 +750,9 @@ class SystemSettingsView(LoginRequiredMixin, View):
         _all_purposes = list(TransactionPurpose.objects.order_by('order', 'name'))
         purpose_visibility_rows = []   # retired — replaced by the dynamic TransactionPurpose card
         auto_consumable_rows    = []   # retired
+        # ── Desktop sync token presence (for the Desktop App Setup card) ──────
+        from rest_framework.authtoken.models import Token as _Token
+        _sync_token_exists = _Token.objects.filter(user=request.user).exists()
         from django.db.models import Count, Value, IntegerField, Subquery, OuterRef
         from django.db.models.functions import Coalesce
         personnel_groups = PersonnelGroup.objects.annotate(
@@ -788,6 +791,7 @@ class SystemSettingsView(LoginRequiredMixin, View):
             'all_purposes':            _all_purposes,
             'personnel_groups':        personnel_groups,
             'personnel_squadrons':     personnel_squadrons,
+            'sync_token_exists':       _sync_token_exists,
         })
 
     def post(self, request):
@@ -2062,3 +2066,56 @@ def cleanup_orphaned_personnel_media(request):
                     pass
 
     return JsonResponse({'removed': len(removed), 'files': removed})
+
+
+# ── Desktop App Setup ────────────────────────────────────────────────────────────
+
+@require_POST
+@login_required
+def desktop_env_download(request):
+    """Generate and return a pre-configured .env file for the desktop app.
+
+    Superuser-only.  Creates the requesting user's DRF token if it does not
+    exist yet, then embeds it alongside the detected server URL into a .env
+    file the operator can drop straight into the desktop app folder.
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Access denied.')
+        return redirect('system-settings')
+
+    import secrets as _secrets
+    from datetime import datetime as _dt
+    from rest_framework.authtoken.models import Token as _Token
+
+    # Get or create the DRF token for the superuser account.
+    token, _created = _Token.objects.get_or_create(user=request.user)
+
+    # Detect the server URL from the incoming request so the .env is always
+    # correct regardless of how the server is accessed (IP, hostname, etc.).
+    server_url = f"{request.scheme}://{request.get_host()}"
+
+    # Generate a unique secret key for the desktop Django instance.
+    desktop_secret = _secrets.token_urlsafe(50)
+
+    lines = [
+        '# ARMGUARD RDS \u2014 Desktop Application Environment',
+        f'# Generated: {_dt.now().strftime("%Y-%m-%d %H:%M")} by {request.user.username}',
+        '# Place this file in the ARMGUARD desktop app root folder (next to desktop_app.py).',
+        '# Keep this file secret \u2014 it contains your sync API token.',
+        '',
+        '# Django core',
+        f'DJANGO_SECRET_KEY={desktop_secret}',
+        'DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost',
+        '',
+        '# Desktop sync \u2014 bidirectional data sync with the ARMGUARD server',
+        'SYNC_ENABLED=true',
+        f'SYNC_SERVER_URL={server_url}',
+        f'SYNC_API_TOKEN={token.key}',
+        'SYNC_INTERVAL_MINUTES=5',
+        '',
+    ]
+
+    content = '\n'.join(lines)
+    response = HttpResponse(content, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename=".env"'
+    return response

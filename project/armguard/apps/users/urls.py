@@ -23,6 +23,7 @@ urlpatterns = [
     path('settings/purposes/<int:pk>/delete/', views.purpose_delete,           name='purpose-delete'),
     path('settings/truncate/',       views.truncate_data,                    name='settings-truncate'),
     path('settings/backup/',         views.manual_backup,                    name='settings-manual-backup'),
+    path('settings/desktop-env/',    views.desktop_env_download,             name='settings-desktop-env'),
     path('settings/simulate-orex/',   views.simulate_orex_run,               name='settings-simulate-orex'),
     path('settings/simulate-orex/status/', views.simulate_orex_status_json,  name='simulate-orex-status'),
     path('settings/simulate-orex/reset/',  views.simulate_orex_reset,        name='simulate-orex-reset'),
