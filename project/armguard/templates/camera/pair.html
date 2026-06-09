@@ -1,0 +1,237 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% block title %}Camera Device Pairing — ARMGUARD{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">
+    {% if is_admin %}
+      <a href="{% url 'camera:device_list' %}" style="color:inherit;text-decoration:none;">&#128247; Camera Devices</a>
+      &rsaquo; Pair Device
+    {% else %}
+      &#128247; My Camera Device
+    {% endif %}
+  </h1>
+</div>
+
+{% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if setup_needed %}
+<div style="background:#422006;border:1px solid #92400e;border-radius:.75rem;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:.75rem;">
+  <span style="font-size:1.5rem;line-height:1;">&#128241;</span>
+  <div>
+    <p style="font-weight:700;color:#fbbf24;margin-bottom:.25rem;">Phone not registered yet</p>
+    <p style="font-size:.85rem;color:#d97706;line-height:1.5;">Your phone hasn&#39;t been paired to ARMGUARD. Scan the QR code below with your phone camera to register it. No login required &mdash; the QR is your authentication.</p>
+  </div>
+</div>
+{% endif %}
+
+<div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;">
+
+  <!-- ── QR Code card ──────────────────────────────────────────────────── -->
+  <div style="background:var(--surface,#1e293b);border-radius:1rem;padding:2rem;min-width:260px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.3);">
+    <p style="font-size:.8rem;color:var(--text-muted,#94a3b8);margin-bottom:.25rem;">
+      <strong style="color:var(--text,#f8fafc);font-size:.95rem;">{{ armorer.username }}</strong>
+      {% if armorer.get_full_name %}<span style="color:#64748b;"> &mdash; {{ armorer.get_full_name }}</span>{% endif %}
+    </p>
+    {% if armorer_role %}
+    <p style="margin-bottom:.75rem;">
+      <span style="font-size:.72rem;font-weight:600;padding:.2rem .6rem;border-radius:1rem;
+        {% if armorer_role == 'System Administrator' %}background:#1e3a5f;color:#93c5fd;
+        {% elif armorer_role == 'Armorer' %}background:#431407;color:#f97316;
+        {% else %}background:#1e293b;color:#94a3b8;{% endif %}">
+        {{ armorer_role }}
+      </span>
+    </p>
+    {% endif %}
+    {% if device and device.device_name %}
+    <p id="label-display" style="font-size:.78rem;color:#f8fafc;margin-bottom:.75rem;font-style:italic;">&#127991; {{ device.device_name }}</p>
+    {% else %}
+    <p id="label-display" style="font-size:.78rem;color:#475569;margin-bottom:.75rem;display:none;"></p>
+    {% endif %}
+
+    {% if device %}
+      {% if device.revoked_at %}
+        <div id="qr-status-badge" style="background:#450a0a;border-radius:.6rem;padding:.8rem;margin-bottom:1rem;font-size:.82rem;color:#f87171;">
+          &#9888; Device revoked
+          {% if device.revoked_by %}by {{ device.revoked_by.username }}{% endif %}
+        </div>
+      {% elif not device.is_active %}
+        <div id="qr-status-badge" style="background:#1c1917;border-radius:.6rem;padding:.6rem;margin-bottom:1rem;font-size:.82rem;color:#fbbf24;">
+          &#9203; Awaiting first scan
+        </div>
+      {% else %}
+        <div id="qr-status-badge" style="background:#052e16;border-radius:.6rem;padding:.6rem;margin-bottom:1rem;font-size:.82rem;color:#4ade80;">
+          &#9679; Active &mdash; last seen
+          {% if device.last_seen_at %}{{ device.last_seen_at|date:"d M Y H:i" }}{% else %}never{% endif %}
+        </div>
+      {% endif %}
+
+      <!-- QR PNG -->
+      <img src="data:image/png;base64,{{ qr_b64 }}"
+           alt="Pairing QR code"
+           style="width:220px;height:220px;border-radius:.5rem;border:4px solid #fff;">
+
+      <p style="font-size:.7rem;color:#64748b;margin-top:.75rem;">
+        Have the armorer scan this code with their phone camera while logged in to ARMGUARD.
+      </p>
+
+      {% if device and not device.revoked_at %}
+      <!-- ── 30-second rotating PIN — always present in DOM, hidden until active ──── -->
+      <div id="pin-box" style="margin-top:1.5rem;background:#0f172a;border-radius:.75rem;padding:1.25rem;text-align:center;{% if not device.is_active %}display:none;{% endif %}">
+        <p style="font-size:.72rem;color:#64748b;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.05em;">Session PIN</p>
+        <div id="pin-display" style="font-size:2.5rem;font-weight:800;letter-spacing:.35rem;color:#f97316;font-variant-numeric:tabular-nums;">{% if initial_pin %}{{ initial_pin }}{% else %}&#8212;&#8212;&#8212;&#8212;&#8212;&#8212;{% endif %}</div>
+        <div style="margin-top:.6rem;display:flex;align-items:center;justify-content:center;gap:.5rem;">
+          <div id="pin-bar-wrap" style="width:120px;height:4px;background:#1e293b;border-radius:2px;overflow:hidden;">
+            <div id="pin-bar" style="height:100%;background:#f97316;width:100%;transition:width .25s linear;border-radius:2px;"></div>
+          </div>
+          <span id="pin-countdown" style="font-size:.72rem;color:#64748b;">30s</span>
+        </div>
+        <p style="font-size:.65rem;color:#475569;margin-top:.5rem;">Show this to the armorer. Changes every 30 s.</p>
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- ── Device info & actions ─────────────────────────────────────────── -->
+  {% if device %}
+  <div style="flex:1;min-width:280px;">
+
+    <!-- Device name form -->
+    <div style="background:var(--surface,#1e293b);border-radius:.75rem;padding:1.5rem;margin-bottom:1rem;">
+      <h3 style="font-size:.95rem;margin-bottom:1rem;color:var(--text,#f8fafc);">Device Label</h3>
+      <form id="label-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="set_name">
+        <label for="label-input" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">Device Label</label>
+        <div style="display:flex;gap:.5rem;">
+          <input id="label-input" type="text" name="device_name"
+                 value="{{ device.device_name }}"
+                 placeholder="e.g. Sgt. Santos — Samsung A54"
+                 maxlength="100"
+                 autocomplete="off"
+                 style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:.4rem;padding:.55rem .75rem;color:#f8fafc;font-size:.9rem;">
+          <button id="label-save-btn" type="submit"
+                  style="background:#f97316;color:#fff;border:none;border-radius:.4rem;padding:.55rem 1rem;font-size:.9rem;cursor:pointer;">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Device details -->
+    <div style="background:var(--surface,#1e293b);border-radius:.75rem;padding:1.5rem;margin-bottom:1rem;font-size:.82rem;color:#94a3b8;">
+      <h3 style="font-size:.95rem;margin-bottom:.75rem;color:var(--text,#f8fafc);">Device Info</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:.3rem 0;width:40%;">Label</td>
+            <td id="dev-info-label" style="color:#f8fafc;">{{ device.device_name|default:"—" }}</td></tr>
+        <tr><td style="padding:.3rem 0;width:40%;">Status</td>
+            <td id="dev-info-status" style="color:{% if device.revoked_at %}#f87171{% elif device.is_active %}#4ade80{% else %}#fbbf24{% endif %};">
+              {% if device.revoked_at %}Revoked{% elif device.is_active %}Active{% else %}Pending activation{% endif %}
+            </td></tr>
+        <tr><td style="padding:.3rem 0;">Paired</td>
+            <td>{{ device.paired_at|date:"d M Y H:i" }}</td></tr>
+        <tr><td style="padding:.3rem 0;">Activated</td>
+            <td id="dev-info-activated">{% if device.activated_at %}{{ device.activated_at|date:"d M Y H:i" }}{% else %}&mdash;{% endif %}</td></tr>
+        <tr><td style="padding:.3rem 0;">Last seen</td>
+            <td id="dev-info-seen">{% if device.last_seen_at %}{{ device.last_seen_at|date:"d M Y H:i" }}{% else %}&mdash;{% endif %}</td></tr>
+        <tr><td style="padding:.3rem 0;">Fingerprint</td>
+            <td style="word-break:break-all;font-size:.72rem;">{{ device.device_fingerprint|default:"—"|truncatechars:80 }}</td></tr>
+        <tr id="dev-info-lock-row" style="display:{% if device.is_locked %}table-row{% else %}none{% endif %};"><td style="padding:.3rem 0;color:#f87171;">Locked until</td>
+            <td id="dev-info-locked-until" style="color:#f87171;">{% if device.locked_until %}{{ device.locked_until|date:"H:i" }}{% endif %}</td></tr>
+      </table>
+    </div>
+
+    {% if is_admin %}
+    <!-- Danger actions -->
+    <div style="background:#1e293b;border:1px solid #450a0a;border-radius:.75rem;padding:1.25rem;">
+      <h3 style="font-size:.9rem;color:#f87171;margin-bottom:.75rem;">&#9888; Danger Zone</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+
+        {% if device.revoked_at %}
+          <form method="post" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="unrevoke">
+            <button type="submit"
+                    style="background:#14532d;color:#4ade80;border:none;border-radius:.4rem;padding:.5rem .9rem;font-size:.82rem;cursor:pointer;">
+              Re-activate Device
+            </button>
+          </form>
+        {% else %}
+          <form method="post" style="display:inline;"
+                onsubmit="return confirm('Revoke this device? The armorer will lose camera access immediately.');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="revoke">
+            <button type="submit"
+                    style="background:#450a0a;color:#f87171;border:none;border-radius:.4rem;padding:.5rem .9rem;font-size:.82rem;cursor:pointer;">
+              Revoke Device
+            </button>
+          </form>
+        {% endif %}
+
+        <form method="post" style="display:inline;"
+              onsubmit="return confirm('Regenerate token? The current QR code becomes invalid and a new one will be shown.');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="regenerate">
+          <button type="submit"
+                  style="background:#1e3a5f;color:#93c5fd;border:none;border-radius:.4rem;padding:.5rem .9rem;font-size:.82rem;cursor:pointer;">
+            &#8635; Regenerate Token
+          </button>
+        </form>
+
+      </div>
+      <p style="font-size:.7rem;color:#64748b;margin-top:.6rem;">
+        Regenerating issues a new token and immediately invalidates the old QR code and any active phone session.
+      </p>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+</div>
+
+{% if device %}
+<!-- ── Recent uploads from this device ────────────────────────────── -->
+<div style="margin-top:2rem;">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+    <h2 style="font-size:1rem;font-weight:700;color:#f8fafc;">&#128443; Recent Uploads</h2>
+    <span id="pair-logs-count" style="background:#1e3a5f;color:#93c5fd;border-radius:1rem;padding:.1rem .6rem;font-size:.72rem;">&#8212;</span>
+    <span id="pair-live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;opacity:.4;transition:opacity .3s;" title="Live updates active"></span>
+  </div>
+  <div style="overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+    <thead>
+      <tr style="border-bottom:1px solid #334155;color:#64748b;text-align:left;">
+        <th style="padding:.5rem .75rem;">Time</th>
+        <th style="padding:.5rem .75rem;">File</th>
+        <th style="padding:.5rem .75rem;">Size</th>
+        <th style="padding:.5rem .75rem;">View</th>
+        <th style="padding:.5rem .75rem;">IP</th>
+        <th style="padding:.5rem .75rem;">Delete</th>
+      </tr>
+    </thead>
+    <tbody id="pair-logs-tbody">
+      <tr id="pair-logs-empty"><td colspan="6" style="padding:1.5rem;text-align:center;color:#475569;">Loading&#8230;</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<style>
+@keyframes cam-fadein { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+</style>
+
+{# Page data and camera_pair.js are in {% block extra_js %} below so PJAX re-executes them on every navigation #}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if device %}
+{# Page data for camera_pair.js — type=application/json is not executed by the browser (CSP-safe) #}
+<script type="application/json" id="pair-page-data">{"statusUrl":"{% url 'camera:device_status' armorer.pk %}","logsUrl":"{% url 'camera:logs_feed' %}?device={{ armorer.pk }}","pinUrl":"{% url 'camera:pair_pin' armorer.pk %}","pairUrl":"{% url 'camera:pair_device' armorer.pk %}","wasActive":{% if device.is_active %}true{% else %}false{% endif %},"initialPinExpiresMs":{% if initial_pin_expires_ms %}{{ initial_pin_expires_ms }}{% else %}0{% endif %}}</script>
+<script src="{% static 'js/camera_pair.js' %}"></script>
+{% endif %}
+{% endblock %}

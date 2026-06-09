@@ -1,0 +1,318 @@
+# ARMGUARD RDS — Network Setup Guide
+
+**Target Platform:** HP ProDesk Mini (Ubuntu Server 24.04 LTS)  
+**Document Date:** March 13, 2026  
+**Purpose:** Connect client workstations (Armory PC, Dev PC) to the ARMGUARD server over LAN.
+
+---
+
+## 1. Network Overview
+
+### Physical Topology (Switch-Centric)
+
+```
+ISP / Modem
+   |
+[Switch1]  ← internet / WAN uplink (source of internet)
+   |  |
+   |  +── PC8  (10.100.x.x)
+   |
+[Switch0]  ────────────────────────────────────
+   +── PC0 SERVER  10.100.5.52
+   +── PC1         10.100.x.x
+   +── PC2         10.100.x.x
+   +── HomeRouter-PT-AC
+           WAN: 10.100.x.x (DHCP from switch network)
+           LAN: 192.168.1.1
+           |
+           +── Wireless ── PC9 (192.168.1.x)
+```
+
+**Key change:** The server (PC0) was moved FROM the HomeRouter's LAN port TO Switch0.
+Switch1 is the WAN/internet uplink (connected to ISP/modem). The network gateway
+is `10.100.4.5` (on Switch1's upstream side).
+
+### Device Table
+
+| Device | Role | IP Address | Subnet | Gateway | Reachable |
+|--------|------|------------|--------|---------|-----------|
+| **PC0** | **Server** | `10.100.5.52` | `10.100.4.0/22` | `10.100.4.5` | ✅ Direct |
+| **Dev PC** | Admin/Dev | `10.100.5.55` | `10.100.4.0/22` | `10.100.4.5` | ✅ Direct |
+| **PC1** | Workstation | `10.100.x.x` | `10.100.4.0/22` | `10.100.4.5` | ✅ Direct |
+| **PC2** | Workstation | `10.100.x.x` | `10.100.4.0/22` | `10.100.4.5` | ✅ Direct |
+| **PC8** | Workstation | `10.100.x.x` (via Switch1) | `10.100.4.0/22` | `10.100.4.5` | ✅ Via Switch1 |
+| **PC9** | Wireless | `192.168.1.x` | `192.168.1.0/24` | `192.168.1.1` | ⚠️ Via port forward |
+| **HomeRouter** | Wireless AP/Router | WAN: `10.100.x.x` (DHCP), LAN: `192.168.1.1` | Both | — | — |
+
+> **PC9 access requires HomeRouter port forwarding:** Forward TCP 80 and 443 from
+> the HomeRouter's WAN side to `10.100.5.52`. Without forwarding, PC9 cannot
+> reach the server because it is on a different subnet (`192.168.1.x` vs `10.100.4.0/22`).
+
+All devices must be on the **same subnet** (`10.100.4.0/22`) OR behind the HomeRouter
+with port forwarding configured to communicate with the server.
+
+---
+
+## 1b. HomeRouter Port Forwarding (for PC9 / wireless clients)
+
+PC9 lives on the HomeRouter's wireless LAN (`192.168.1.x`) — a different subnet from
+the server (`192.168.0.x`). To allow PC9 to reach the ARMGUARD server, configure
+**port forwarding** on the HomeRouter:
+
+| Forward | Protocol | External Port | Internal IP | Internal Port |
+|---------|----------|--------------|-------------|---------------|
+| HTTP | TCP | 80 | `10.100.5.52` | 80 |
+| HTTPS | TCP | 443 | `10.100.5.52` | 443 |
+
+On a Cisco-style HomeRouter (e.g. Packet Tracer HomeRouter-PT-AC):
+1. Access the router admin page (usually `192.168.1.1` from a wireless client).
+2. Navigate to **Port Forwarding** or **Applications & Gaming**.
+3. Add rules for TCP port 80 and TCP port 443, both pointing to `192.168.0.11`.
+
+After forwarding is configured, PC9 can reach the server at:
+- `http://10.100.x.x` (HomeRouter WAN IP) → redirected to `https://10.100.x.x` → proxied to server
+- `https://armguard.local` (if mDNS reflector is enabled — see `avahi-daemon.conf`)
+
+> The server-side scripts (`deploy.sh`, `avahi-daemon.conf`) have already been
+> updated to support this dual-subnet topology. The mDNS reflector
+> (`enable-reflector=yes`) forwards `armguard.local` resolution across both networks.
+
+---
+
+## 2. Check Server IP (Ubuntu Server)
+
+SSH into the server or run directly on it:
+
+```bash
+ip a
+```
+
+Look for the `enp2s0` interface — the server's LAN IP is the `inet` line:
+
+```
+2: enp2s0: ...
+    inet 10.100.5.52/22 ...
+```
+
+For a quick one-liner:
+
+```bash
+hostname -I
+```
+
+---
+
+## 3. Configure a Client PC (Windows) — Static IP
+
+Do this on any Windows PC that cannot reach the server (wrong subnet or DHCP conflict).
+
+### Step 1 — Open Network Connections
+
+Press `Win + R`, type `ncpa.cpl`, press **Enter**.
+
+### Step 2 — Open Ethernet Properties
+
+Right-click the **Ethernet** adapter → **Properties**.
+
+### Step 3 — Open IPv4 Settings
+
+Double-click **Internet Protocol Version 4 (TCP/IPv4)**.
+
+### Step 4 — Set Static IP
+
+Select **"Use the following IP address"** and fill in:
+
+| Field | Value |
+|-------|-------|
+| IP Address | `10.100.0.XX` *(pick an unused address in the 10.100.4.0–10.100.7.255 range)*|
+| Subnet Mask | `255.255.252.0` |
+| Default Gateway | `10.100.4.5` |
+| Preferred DNS | `8.8.8.8` |
+| Alternate DNS | `8.8.4.4` |
+
+> **Recommended static addresses by role:**
+> | Role | Suggested IP |
+> |------|-------------|
+> | Armory PC | `10.100.5.50` |
+> | Admin / Dev PC | `10.100.5.55` *(already set)* |
+> | Spare workstation | `10.100.5.51`–`10.100.5.60` |
+
+### Step 5 — Apply
+
+Click **OK** → **OK**. No reboot required.
+
+---
+
+## 4. Verify an IP Address is Free Before Assigning
+
+From the **server**, ping the candidate address before assigning it:
+
+```bash
+ping -c 3 10.100.5.50
+```
+
+- **All timeouts** → address is free, safe to assign.
+- **Replies received** → something is already using it — pick a different number.
+
+---
+
+## 5. Test Connectivity
+
+After changing the IP on the client PC, open **Command Prompt** and run:
+
+```cmd
+ping 10.100.5.52
+```
+
+Expected output (success):
+```
+Reply from 10.100.5.52: bytes=32 time<1ms TTL=64
+Reply from 10.100.5.52: bytes=32 time<1ms TTL=64
+```
+
+If you see `Request timed out` — double-check the IP, subnet mask, and gateway settings.
+
+---
+
+## 6. Access the Application
+
+Once ping succeeds, open a browser on the client PC and navigate to:
+
+```
+http://10.100.5.52
+```
+
+For HTTPS (after SSL certificate is installed):
+
+```
+https://10.100.5.52
+```
+
+> **Self-signed certificate:** The first time you visit via HTTPS, the browser will warn about an untrusted certificate. Download and install the server's certificate from:
+> ```
+> http://10.100.5.52/download/ssl-cert/
+> ```
+> Then import it into your browser's/OS's trusted certificate store.
+
+---
+
+## 7. Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|-------------|-----|
+| `Request timed out` on ping | Wrong subnet or firewall | Verify IP is in `10.100.4.0/22`; check UFW on server |
+| Ping works but browser fails | Nginx not running | SSH to server: `sudo systemctl status nginx` |
+| `Connection refused` on port 80 | Gunicorn or Nginx down | `sudo systemctl restart armguard-gunicorn nginx` |
+| Intermittent dropouts | DHCP lease conflict | Assign a static IP (this guide) |
+| Cannot reach internet from client | Wrong gateway | Ensure Default Gateway is `10.100.4.5` |
+
+### Check server services (run on server):
+
+```bash
+sudo systemctl status armguard-gunicorn
+sudo systemctl status nginx
+```
+
+### Check UFW firewall (run on server):
+
+```bash
+sudo ufw status
+```
+
+Ports `80` (HTTP) and `443` (HTTPS) must show `ALLOW`.
+
+---
+
+## 8. Restore Armory PC to Original Settings
+
+If you need to revert the armory PC back to its original network (e.g., reconnecting it to its old network at `192.168.1.x`), follow the steps below.
+
+---
+
+### Option A — Restore Original Static IP (back to 192.168.1.66)
+
+Use this if the armory PC originally had a fixed IP on the `192.168.1.x` network.
+
+1. Press `Win + R` → type `ncpa.cpl` → press **Enter**
+2. Right-click **Ethernet** → **Properties**
+3. Double-click **Internet Protocol Version 4 (TCP/IPv4)**
+4. Select **"Use the following IP address"** and restore the original values:
+
+| Field | Original Value |
+|-------|---------------|
+| IP Address | `192.168.1.66` |
+| Subnet Mask | `255.255.255.0` |
+| Default Gateway | `192.168.1.1` |
+| Preferred DNS | `8.8.8.8` |
+| Alternate DNS | `8.8.4.4` |
+
+5. Click **OK** → **OK**
+
+---
+
+### Option B — Switch Back to Automatic IP (DHCP)
+
+Use this if the armory PC originally obtained its IP automatically from a router.
+
+1. Press `Win + R` → type `ncpa.cpl` → press **Enter**
+2. Right-click **Ethernet** → **Properties**
+3. Double-click **Internet Protocol Version 4 (TCP/IPv4)**
+4. Select:
+   - ✅ **Obtain an IP address automatically**
+   - ✅ **Obtain DNS server address automatically**
+5. Click **OK** → **OK**
+
+The PC will request a new IP from the router's DHCP server within a few seconds.
+
+---
+
+### Verify the Restore
+
+Open **Command Prompt** and run:
+
+```cmd
+ipconfig
+```
+
+Confirm the IP address matches what you restored. Then test the original network:
+
+```cmd
+ping 192.168.1.1
+```
+
+---
+
+> **Note:** After restoring, the armory PC will **no longer be able to reach the ARMGUARD server** at `192.168.0.11` unless both networks are bridged by a router or a switch with inter-VLAN routing. To reconnect to ARMGUARD in the future, repeat §3 of this guide.
+
+---
+
+## 9. Reference — Server Network Config
+
+```
+Interface : enp2s0
+IP Address: 10.100.5.52
+Subnet    : 255.255.252.0  (/22)
+Gateway   : 10.100.4.5
+Network   : 10.100.4.0/22  (usable: 10.100.4.1 – 10.100.7.254)
+MAC       : 18:c0:4d:c1:51:e8
+```
+
+## 10. Reference — Armory PC Original Config (before ARMGUARD setup)
+
+```
+Interface : Ethernet
+IP Address: 192.168.1.66
+Subnet    : 255.255.255.0  (/24)
+Gateway   : 192.168.1.1
+Hostname  : jay
+```
+
+## 11. Reference — Dev PC Config
+
+```
+Interface : Ethernet
+IP Address: 10.100.5.55
+Subnet    : 255.255.252.0  (/22)
+Gateway   : 10.100.4.5
+Hostname  : 9533RDS
+```

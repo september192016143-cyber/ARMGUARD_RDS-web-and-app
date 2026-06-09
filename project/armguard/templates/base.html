@@ -1,0 +1,303 @@
+﻿{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}ARMGUARD{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/fontawesome/all.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+<link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+<link rel="shortcut icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+{# C2 FIX: base.js loaded blocking (no defer/async) so sidebar anti-FOUC runs before body paints. #}
+<script src="{% static 'js/base.js' %}"></script>
+</head>
+{# C2 FIX: data-poll activates G13 inventory polling for authenticated users only (replaces inline auth-block script). #}
+{# F6 FIX: data-last-modified-url passes the API endpoint URL so base.js doesn't need to hardcode it. #}
+<body data-poll="{% if user.is_authenticated %}1{% endif %}" data-last-modified-url="{% url 'api:api-last-modified' %}" data-new-txn-url="{% url 'transaction-create' %}"{% if request.resolver_match.url_name == 'transaction-create' %} data-collapse-sidebar="1"{% endif %}{% if user.is_authenticated %} data-idle-timeout="{{ IDLE_SESSION_TIMEOUT }}" data-logout-url="{% url 'logout' %}"{% endif %}>
+<a href="#main-content" class="skip-to-content">Skip to main content</a>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+<aside class="sidebar" role="navigation" aria-label="Main navigation">
+  <div class="sidebar-brand">
+    <span id="sidebar-toggle" title="Toggle sidebar" style="cursor:pointer;width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.55rem;color:var(--primary,#4f8ef7)">
+      {% if site_settings and site_settings.app_logo %}
+        <img src="{{ site_settings.app_logo.url }}" alt="Logo" style="width:36px;height:36px;object-fit:contain;border-radius:6px">
+      {% else %}
+        <i class="fa-solid fa-shield-halved"></i>
+      {% endif %}
+    </span>
+    <div>
+      <div class="brand-name">ARMGUARD</div>
+      <div class="brand-sub">{{ request.user.get_full_name|default:request.user.username }}</div>
+      <div class="brand-sub">{% if request.user.is_superuser %}System Administrator{% else %}{{ request.user.profile.role|default:"Armorer" }}{% endif %}</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Main</div>
+    <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" title="Dashboard">
+      <i class="fa-solid fa-gauge nav-icon"></i><span class="nav-label">Dashboard</span>
+    </a>
+    {% if can_view_personnel %}
+    <div class="nav-section">Personnel Management</div>
+    <a href="{% url 'personnel-list' %}" class="nav-item {% if request.resolver_match.url_name|slice:':9' == 'personnel' %}active{% endif %}" title="Personnels">
+      <i class="fa-solid fa-users nav-icon"></i><span class="nav-label">Personnels</span>
+    </a>
+    {% endif %}
+    {% if can_view_inventory %}
+    <div class="nav-group {% if 'inventory' in request.path %}open{% endif %}">
+      <div class="nav-group-header">
+        <i class="fa-solid fa-box-archive nav-icon"></i>
+        <span class="nav-label">Inventory</span>
+        <i class="fa-solid fa-chevron-right caret"></i>
+      </div>
+      <div class="nav-flyout">
+        <div class="nav-flyout-title">Inventory</div>
+        <a href="{% url 'pistol-list' %}"><i class="fa-solid fa-gun"></i>Pistols</a>
+        <a href="{% url 'rifle-list' %}"><i class="fa-solid fa-crosshairs"></i>Rifles</a>
+        <a href="{% url 'magazine-list' %}"><i class="fa-solid fa-bars"></i>Magazines</a>
+        <a href="{% url 'ammunition-list' %}"><i class="fa-solid fa-circle" style="font-size:.5rem"></i>Ammunition</a>
+        <a href="{% url 'accessory-list' %}"><i class="fa-solid fa-toolbox"></i>Accessories</a>
+        <a href="{% url 'discrepancy-list' %}"><i class="fa-solid fa-triangle-exclamation"></i>Discrepancies</a>
+      </div>
+      <div class="nav-sub">
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'pistol-list' %}active{% endif %}">
+          <i class="fa-solid fa-gun nav-icon"></i>
+          <a href="{% url 'pistol-list' %}" class="nav-item-main">Pistols</a>
+          {% if can_add_inventory %}<a href="{% url 'pistol-add' %}" class="nav-item-add">+ Add</a>{% endif %}
+        </div>
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'rifle-list' %}active{% endif %}">
+          <i class="fa-solid fa-crosshairs nav-icon"></i>
+          <a href="{% url 'rifle-list' %}" class="nav-item-main">Rifles</a>
+          {% if can_add_inventory %}<a href="{% url 'rifle-add' %}" class="nav-item-add">+ Add</a>{% endif %}
+        </div>
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'magazine-list' %}active{% endif %}">
+          <i class="fa-solid fa-bars nav-icon"></i>
+          <a href="{% url 'magazine-list' %}" class="nav-item-main">Magazines</a>
+          {% if can_add_inventory %}<a href="{% url 'magazine-add' %}" class="nav-item-add">+ Add</a>{% endif %}
+        </div>
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'ammunition-list' %}active{% endif %}">
+          <i class="fa-solid fa-circle nav-icon" style="font-size:.55rem"></i>
+          <a href="{% url 'ammunition-list' %}" class="nav-item-main">Ammunition</a>
+          {% if can_add_inventory %}<a href="{% url 'ammunition-add' %}" class="nav-item-add">+ Add</a>{% endif %}
+        </div>
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'accessory-list' %}active{% endif %}">
+          <i class="fa-solid fa-toolbox nav-icon"></i>
+          <a href="{% url 'accessory-list' %}" class="nav-item-main">Accessories</a>
+          {% if can_add_inventory %}<a href="{% url 'accessory-add' %}" class="nav-item-add">+ Add</a>{% endif %}
+        </div>
+        <div class="nav-item-row {% if request.resolver_match.url_name == 'discrepancy-list' %}active{% endif %}">
+          <i class="fa-solid fa-triangle-exclamation nav-icon" style="color:#f87171"></i>
+          <a href="{% url 'discrepancy-list' %}" class="nav-item-main">Discrepancies</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="nav-section">Operations</div>
+    {% if can_view_transactions %}
+    <a href="{% url 'transaction-list' %}" class="nav-item {% if 'transaction' in request.resolver_match.url_name and request.resolver_match.url_name != 'transaction-create' %}active{% endif %}" title="Transaction Logs">
+      <i class="fa-solid fa-receipt nav-icon"></i><span class="nav-label">Transaction Logs</span>
+    </a>
+    {% endif %}
+    {% if can_create_transaction %}
+    <a href="{% url 'transaction-create' %}" class="nav-item {% if request.resolver_match.url_name == 'transaction-create' %}active{% endif %}" title="New Transaction">
+      <i class="fa-solid fa-circle-plus nav-icon"></i><span class="nav-label">New Transaction</span>
+    </a>
+    {% endif %}
+    {% if can_use_camera and not can_manage_users %}
+    <div class="nav-section">Camera</div>
+    <a href="{% url 'camera:my_device' %}" class="nav-item {% if 'camera' in request.resolver_match.url_name %}active{% endif %}" title="My Camera Device">
+      <i class="fa-solid fa-camera nav-icon"></i><span class="nav-label">My Camera</span>
+    </a>
+    {% endif %}
+    {% if can_print %}
+    <div class="nav-section">Print</div>
+    <a href="{% url 'print_handler:print_id_cards' %}" class="nav-item {% if request.resolver_match.url_name == 'print_id_cards' %}active{% endif %}" title="Personnel ID Cards">
+      <i class="fa-solid fa-id-card nav-icon"></i><span class="nav-label">Personnel ID Cards</span>
+    </a>
+    <a href="{% url 'print_handler:print_item_tags' %}" class="nav-item {% if request.resolver_match.url_name == 'print_item_tags' %}active{% endif %}" title="Item Tags">
+      <i class="fa-solid fa-tag nav-icon"></i><span class="nav-label">Item Tags</span>
+    </a>
+    <a href="{% url 'print_handler:reprint_tr' %}" class="nav-item {% if request.resolver_match.url_name == 'reprint_tr' %}active{% endif %}" title="Temporary Receipt">
+      <i class="fa-solid fa-file-lines nav-icon"></i><span class="nav-label">Temporary Receipt</span>
+    </a>
+    <a href="{% url 'print_handler:print_transactions' %}" class="nav-item {% if request.resolver_match.url_name == 'print_transactions' %}active{% endif %}" title="Print Reports">
+      <i class="fa-solid fa-print nav-icon"></i><span class="nav-label">Print Reports</span>
+    </a>
+    {% endif %}
+    {% if can_manage_users %}
+    <div class="nav-section">Admin</div>
+    <a href="{% url 'user-list' %}" class="nav-item {% if request.resolver_match.url_name == 'user-list' %}active{% endif %}" title="User Management">
+      <i class="fa-solid fa-users-gear nav-icon"></i><span class="nav-label">User Management</span>
+    </a>
+    {% if can_manage_users %}
+    <a href="{% url 'user-add' %}" class="nav-item {% if request.resolver_match.url_name == 'user-add' %}active{% endif %}" title="Add User">
+      <i class="fa-solid fa-user-plus nav-icon"></i><span class="nav-label">Add User</span>
+    </a>
+    <a href="{% url 'camera:device_list' %}" class="nav-item {% if 'camera' in request.resolver_match.url_name %}active{% endif %}" title="Camera Devices">
+      <i class="fa-solid fa-camera nav-icon"></i><span class="nav-label">Camera Devices</span>
+    </a>
+    {% endif %}
+    {% if user.is_superuser %}
+    <a href="{% url 'admin:index' %}" class="nav-item" target="_blank" title="Django Admin">
+      <i class="fa-solid fa-screwdriver-wrench nav-icon"></i><span class="nav-label">Django Admin</span>
+    </a>
+    <a href="{% url 'system-settings' %}" class="nav-item {% if request.resolver_match.url_name == 'system-settings' %}active{% endif %}" title="Settings">
+      <i class="fa-solid fa-gear nav-icon"></i><span class="nav-label">Settings</span>
+    </a>
+    <a href="{% url 'personnel-import' %}" class="nav-item {% if request.resolver_match.url_name == 'personnel-import' %}active{% endif %}" title="Import Personnel">
+      <i class="fa-solid fa-file-import nav-icon"></i><span class="nav-label">Import Personnel</span>
+    </a>
+    <a href="{% url 'inventory-import' %}" class="nav-item {% if request.resolver_match.url_name == 'inventory-import' %}active{% endif %}" title="Import Items">
+      <i class="fa-solid fa-file-import nav-icon"></i><span class="nav-label">Import Items</span>
+    </a>
+    {% endif %}
+    {% endif %}
+  </nav>
+  <div class="sidebar-footer">
+    <a href="{% url 'profile:view' %}" class="user-block{% if 'profile' in request.path %} active{% endif %}" title="View and edit your profile" style="text-decoration:none;display:flex;align-items:center;gap:.75rem;cursor:pointer;">
+      <div class="user-avatar">{{ request.user.username|slice:":1"|upper }}</div>
+      <div>
+        <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+        <div class="user-role">{% if request.user.is_superuser %}System Administrator{% else %}{{ request.user.profile.role|default:"Armorer" }}{% endif %}</div>
+      </div>
+    </a>
+    <a href="{% url 'download-ssl-cert' %}" id="ssl-cert-sidebar-btn" class="logout-btn" title="Install SSL Certificate on this device" style="text-decoration:none;display:flex;align-items:center;gap:.5rem;margin-bottom:.35rem;">
+      <i class="fa-solid fa-certificate" style="width:16px;text-align:center;flex-shrink:0;"></i>
+      <span class="logout-label">Install SSL Cert</span>
+    </a>
+    <button type="button" id="theme-toggle-btn" class="logout-btn theme-sidebar-btn" title="Toggle day / night mode" style="background:none;border:none;cursor:pointer;width:100%;text-align:left;margin-bottom:.1rem;">
+      <i class="fa-solid fa-sun icon-sun" style="width:16px;text-align:center;flex-shrink:0;"></i>
+      <i class="fa-solid fa-moon icon-moon" style="width:16px;text-align:center;flex-shrink:0;"></i>
+      <span class="logout-label theme-label-day">Day Mode</span>
+      <span class="logout-label theme-label-night">Night Mode</span>
+    </button>
+    <form method="post" action="{% url 'logout' %}" style="margin:0">
+      {% csrf_token %}
+      <button type="submit" id="logout-btn" name="logout" class="logout-btn" style="background:none;border:none;cursor:pointer;width:100%;text-align:left" title="Sign out">
+        <i class="fa-solid fa-arrow-right-from-bracket" style="width:16px;text-align:center;flex-shrink:0;"></i>
+        <span class="logout-label">Sign out</span>
+      </button>
+    </form>
+  </div>
+</aside>
+<div class="main">
+  <div class="topbar">
+    <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar-overlay">
+      <i class="fa-solid fa-bars" style="font-size:.9rem"></i>
+    </button>
+    {# A11Y FIX: <h1> gives each page a proper heading hierarchy for screen readers. #}
+    <h1 class="topbar-title" id="pjax-title" style="font-size:1rem;font-weight:700;">{% block page_title %}ARMGUARD{% endblock %}</h1>
+    <span class="topbar-sub" id="pjax-sub">{% block page_sub %}{% endblock %}</span>
+    <div class="topbar-actions" style="flex:1;position:relative;min-width:0;">
+      <div id="pjax-actions" style="display:flex;align-items:center;min-width:0;">{% block topbar_actions %}{% endblock %}</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:.75rem;">
+        <div id="pjax-submit">{% block topbar_submit %}{% endblock %}</div>
+        <div class="notif-wrap" id="notif-wrap">
+          <button class="notif-btn" id="notif-btn" title="Notifications" aria-label="Notifications" aria-expanded="false" aria-controls="notif-panel" aria-haspopup="true">
+            <i class="fa-solid fa-bell" style="font-size:.85rem"></i>
+            <span class="notif-badge" id="notif-badge" aria-live="polite" aria-atomic="true">0</span>
+          </button>
+          <div class="notif-panel" id="notif-panel" role="dialog" aria-label="Notifications" aria-live="polite">
+            <div class="notif-header">
+              <span class="notif-header-title">Notifications</span>
+              <button class="notif-clear" id="notif-clear-btn">Mark all read</button>
+            </div>
+            <div class="notif-list" id="notif-list">
+              <div class="notif-empty" id="notif-empty"><i class="fa-solid fa-bell-slash" style="display:block;font-size:1.5rem;margin-bottom:.5rem;opacity:.3"></i>No new notifications</div>
+            </div>
+            <div class="notif-footer"><button type="button" class="notif-view-all-btn">View all notifications</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+    <div class="page-body" id="main-content" role="main">
+    {% for msg in messages %}
+    <div class="alert alert-{% if msg.tags == 'error' %}error{% elif msg.tags == 'success' %}success{% elif msg.tags == 'warning' %}warning{% else %}info{% endif %}" role="alert" aria-live="polite">{{ msg }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </div>
+</div>
+{# C2 FIX: All JS moved to static/js/base.js — no inline scripts remain. #}
+{# G13 poll activated via data-poll="1" on <body> when user is authenticated. #}
+
+{# ===== SSL Certificate Install Guide Modal ===== #}
+<div id="ssl-modal-overlay" class="ssl-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ssl-modal-title" style="display:none">
+  <div class="ssl-modal">
+    <div class="ssl-modal-header">
+      <span id="ssl-modal-title"><i class="fa-solid fa-certificate" style="margin-right:.5rem;color:var(--primary)"></i>Install SSL Certificate</span>
+      <button class="ssl-modal-close" id="ssl-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="ssl-modal-body">
+      <p class="ssl-modal-intro">Installing this certificate removes the <strong>"Not Secure"</strong> warning and shows a padlock in your browser. Do this once on each device.</p>
+      <ol class="ssl-steps">
+        <li>
+          <span class="ssl-step-num">1</span>
+          <span class="ssl-step-text">Click <strong>Download Certificate</strong> below — the file <code>armguard-selfsigned.crt</code> will save to your Downloads folder.</span>
+        </li>
+        <li>
+          <span class="ssl-step-num">2</span>
+          <span class="ssl-step-text"><strong>Double-click</strong> the downloaded <code>.crt</code> file. A Windows certificate dialog will open.</span>
+        </li>
+        <li>
+          <span class="ssl-step-num">3</span>
+          <span class="ssl-step-text">Click <strong>Install Certificate</strong>.</span>
+        </li>
+        <li>
+          <span class="ssl-step-num">4</span>
+          <span class="ssl-step-text">Select <strong>Local Machine</strong> → click <strong>Next</strong>.<br><em style="color:var(--muted);font-size:.8em">Windows may ask for administrator permission — click Yes.</em></span>
+        </li>
+        <li>
+          <span class="ssl-step-num">5</span>
+          <span class="ssl-step-text">Choose <strong>Place all certificates in the following store</strong> → click <strong>Browse</strong> → select <strong>Trusted Root Certification Authorities</strong> → click <strong>OK</strong>.</span>
+        </li>
+        <li>
+          <span class="ssl-step-num">6</span>
+          <span class="ssl-step-text">Click <strong>Next</strong> → <strong>Finish</strong>. You will see a security warning — click <strong>Yes</strong> to confirm.</span>
+        </li>
+        <li>
+          <span class="ssl-step-num">7</span>
+          <span class="ssl-step-text"><strong>Close all browser windows</strong> completely, then reopen and go to <code>https://{{ request.get_host }}</code>. The padlock will now be green with no warning.</span>
+        </li>
+      </ol>
+      <div class="ssl-modal-note">
+        <i class="fa-solid fa-circle-info" style="color:var(--primary);margin-right:.4rem"></i>
+        Only needed once per device. If the certificate is renewed in the future, you will be notified here.
+      </div>
+    </div>
+    <div class="ssl-modal-footer">
+      <button class="ssl-modal-cancel" id="ssl-modal-cancel">Cancel</button>
+      <button class="ssl-modal-installed" id="ssl-modal-installed" title="Dismiss this notification — cert is already installed">Already Installed</button>
+      <a href="{% url 'download-ssl-cert' %}" id="ssl-modal-download" class="ssl-modal-download-btn">
+        <i class="fa-solid fa-download" style="margin-right:.4rem"></i>Download Certificate
+      </a>
+    </div>
+  </div>
+</div>
+{# ===== End SSL Modal ===== #}
+
+{# ===== Notification Detail Modal ===== #}
+<div id="notif-detail-overlay" class="notif-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="notif-detail-title" style="display:none">
+  <div class="notif-detail-modal">
+    <div class="notif-detail-header">
+      <div class="notif-detail-icon" id="notif-detail-icon"></div>
+      <span class="notif-detail-title" id="notif-detail-title"></span>
+      <button class="notif-detail-close" id="notif-detail-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="notif-detail-body">
+      <p class="notif-detail-msg" id="notif-detail-msg"></p>
+      <div class="notif-detail-time" id="notif-detail-time"></div>
+    </div>
+    <div class="notif-detail-footer">
+      <button type="button" id="notif-detail-action" class="notif-detail-action-btn" style="display:none"></button>
+      <button id="notif-detail-dismiss" class="notif-detail-dismiss-btn">Dismiss</button>
+    </div>
+  </div>
+</div>
+{# ===== End Notification Detail Modal ===== #}
+
+<div id="pjax-extra-css">{% block extra_css %}{% endblock %}</div>
+<script src="{% static 'js/hot_key.js' %}" defer data-pjax-permanent></script>
+{% if user.is_authenticated %}<script src="{% static 'js/idle_timeout.js' %}" defer data-pjax-permanent></script>{% endif %}
+{% block extra_js %}{% endblock %}
+</body>
+</html>

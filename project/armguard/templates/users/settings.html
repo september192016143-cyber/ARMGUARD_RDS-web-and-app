@@ -1,0 +1,976 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}System Settings — ARMGUARD{% endblock %}
+{% block page_title %}System Settings{% endblock %}
+{% block page_sub %}Site-wide configuration{% endblock %}
+
+{% block topbar_actions %}
+<button type="submit" form="settings-form" class="btn btn-primary btn-sm">
+  <i class="fa-solid fa-floppy-disk"></i> Save Settings
+</button>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="settings-form" enctype="multipart/form-data" autocomplete="off" style="max-width:980px">
+  {% csrf_token %}
+
+  <!-- ── Branding ────────────────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-image"></i> Branding</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="id_app_logo">Sidebar Icon / Logo</label>
+
+      {% if s.app_logo %}
+      <!-- Current logo preview -->
+      <div style="background:var(--surface2,#1a2035);border:1px solid var(--border,#2d3347);border-radius:10px;padding:1rem 1.25rem;margin-bottom:.85rem;display:flex;align-items:center;gap:1.25rem">
+        <a href="{{ s.app_logo.url }}" target="_blank" title="View full size" style="flex-shrink:0;display:block">
+          <img src="{{ s.app_logo.url }}" alt="Current logo"
+               style="width:80px;height:80px;object-fit:contain;border-radius:10px;border:1px solid var(--border,#2d3347);display:block">
+        </a>
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:.88rem;margin-bottom:.2rem">Current logo</div>
+          <div style="font-size:.78rem;color:var(--muted);word-break:break-all;margin-bottom:.5rem">{{ s.app_logo.name }}</div>
+          <a href="{{ s.app_logo.url }}" target="_blank" style="font-size:.78rem;color:var(--primary,#f59e0b);text-decoration:none">
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:.7rem"></i> View full size
+          </a>
+          <label style="display:flex;align-items:center;gap:.4rem;margin-top:.55rem;cursor:pointer;font-size:.82rem">
+            <input type="checkbox" name="clear_app_logo" value="1"> Remove current logo
+          </label>
+        </div>
+      </div>
+      {% else %}
+      <div style="background:var(--surface2,#1a2035);border:1px dashed var(--border,#2d3347);border-radius:10px;padding:.85rem 1.25rem;margin-bottom:.85rem;display:flex;align-items:center;gap:.75rem;font-size:.82rem;color:var(--muted)">
+        <i class="fa-solid fa-image" style="font-size:1.25rem"></i> No custom logo set — the default shield icon is shown.
+      </div>
+      {% endif %}
+
+            <label for="id_app_logo" class="form-label">Upload new logo
+         <input type="file" name="app_logo" id="id_app_logo" class="form-control"
+           accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" autocomplete="off">
+            </label>
+      <div class="form-hint">Displayed in the sidebar next to "ARMGUARD". Square PNG recommended, at least 80×80 px. Leave blank to keep the current logo. If no logo is set, a default shield icon is shown.</div>
+    </div>
+
+  </div>
+
+  <!-- ── Unit Info ──────────────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-shield-halved"></i> Unit</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="id_unit_name">Unit Name</label>
+            <input type="text" id="id_unit_name" name="unit_name" class="form-control"
+              value="{{ s.unit_name }}" maxlength="150" placeholder="e.g. 950th CEWW" autocomplete="organization">
+      <div class="form-hint">Displayed in report headers.</div>
+    </div>
+  </div>
+
+  <!-- ── Report Signature — Commander ─────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-signature"></i> Report Signature — Commander</span>
+    </div>
+
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_commander_name">Name</label>
+         <input type="text" id="id_commander_name" name="commander_name" class="form-control"
+           value="{{ s.commander_name }}" maxlength="100" placeholder="Full name (ALL CAPS)" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_commander_rank">Rank</label>
+         <input type="text" id="id_commander_rank" name="commander_rank" class="form-control"
+           value="{{ s.commander_rank }}" maxlength="50" placeholder="e.g. LTC" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_commander_branch">Branch / Service</label>
+         <input type="text" id="id_commander_branch" name="commander_branch" class="form-control"
+           value="{{ s.commander_branch }}" maxlength="20" placeholder="e.g. PAF" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_commander_designation">Designation</label>
+         <input type="text" id="id_commander_designation" name="commander_designation" class="form-control"
+           value="{{ s.commander_designation }}" maxlength="100" placeholder="e.g. Squadron Commander" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Report Signature — Armorer ───────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-gun"></i> Report Signature — Armorer</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="id_armorer_branch">Armorer Branch / Service Label</label>
+            <input type="text" id="id_armorer_branch" name="armorer_branch" class="form-control"
+              value="{{ s.armorer_branch }}" maxlength="20" placeholder="e.g. PAF" autocomplete="off">
+      <div class="form-hint">Branch label shown under the armorer's signature block on printed reports. The armorer's name and rank are read from their linked Personnel record.</div>
+    </div>
+  </div>
+
+  <!-- ── Inventory Limits ───────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-layer-group"></i> Inventory Limits</span>
+    </div>
+
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_pistol_mag">Pistol Magazine — Max Qty per Transaction</label>
+         <input type="number" id="id_pistol_mag" name="pistol_magazine_max_qty" class="form-control"
+           value="{{ s.pistol_magazine_max_qty }}" min="1" max="9999" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_rifle_mag">Rifle Magazine — Max Qty per Transaction</label>
+         <input type="number" id="id_rifle_mag" name="rifle_magazine_max_qty" class="form-control"
+           value="{{ s.rifle_magazine_max_qty|default:'' }}" min="1" max="9999" placeholder="Blank = no limit" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Two-Factor Authentication ─────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-mobile-screen-button"></i> Two-Factor Authentication (2FA)</span>
+    </div>
+
+    <!-- 2FA Coverage stats -->
+    <div style="display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px;background:var(--surface2,#1e2330);border-radius:8px;padding:.85rem 1rem;border:1px solid var(--border,#2d3347)">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--primary,#4f8ef7)">{{ total_users }}</div>
+        <div style="font-size:.78rem;color:var(--muted)">Active Users</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:var(--surface2,#1e2330);border-radius:8px;padding:.85rem 1rem;border:1px solid var(--border,#2d3347)">
+        <div style="font-size:1.6rem;font-weight:700;color:#22c55e">{{ users_with_2fa }}</div>
+        <div style="font-size:.78rem;color:var(--muted)">Have 2FA Enabled</div>
+      </div>
+      <div style="flex:1;min-width:140px;background:var(--surface2,#1e2330);border-radius:8px;padding:.85rem 1rem;border:1px solid {% if users_without_2fa > 0 %}#f59e0b33{% else %}var(--border,#2d3347){% endif %}">
+        <div style="font-size:1.6rem;font-weight:700;color:{% if users_without_2fa > 0 %}#f59e0b{% else %}var(--muted){% endif %}">{{ users_without_2fa }}</div>
+        <div style="font-size:.78rem;color:var(--muted)">Without 2FA</div>
+      </div>
+    </div>
+
+    <!-- 2FA progress bar -->
+    {% if total_users > 0 %}
+    {% with pct=users_with_2fa|floatformat:0 %}
+    <div style="margin-bottom:1.25rem">
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:.3rem">
+        <span>2FA Coverage</span>
+        <span>{{ users_with_2fa }} / {{ total_users }}</span>
+      </div>
+      <div style="height:6px;background:var(--surface2,#1e2330);border-radius:3px;overflow:hidden">
+        {% if total_users %}
+        <div style="height:100%;width:{{ users_with_2fa|default:0 }}00%;max-width:100%;background:{% if users_without_2fa == 0 %}#22c55e{% elif users_with_2fa == 0 %}#ef4444{% else %}#f59e0b{% endif %};border-radius:3px;transition:width .4s"></div>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+    {% endif %}
+
+    <!-- 2FA enforcement toggle -->
+    <div class="form-group" style="background:{% if s.mfa_required %}rgba(34,197,94,.07){% else %}rgba(239,68,68,.07){% endif %};border:1px solid {% if s.mfa_required %}rgba(34,197,94,.25){% else %}rgba(239,68,68,.25){% endif %};border-radius:8px;padding:.9rem 1rem;display:flex;align-items:flex-start;gap:.85rem">
+      <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;flex:1">
+         <input type="checkbox" name="mfa_required" id="id_mfa_required"
+           {% if s.mfa_required %}checked{% endif %}
+           style="width:18px;height:18px;accent-color:var(--primary,#4f8ef7);cursor:pointer;flex-shrink:0" autocomplete="off">
+        <span>
+          <strong>Enforce 2FA for all users</strong><br>
+          <span style="font-size:.8rem;color:var(--muted)">
+            When enabled, every user must complete a TOTP verification step after login. Users without a configured authenticator app are redirected to the 2FA setup page.
+            {% if not s.mfa_required %}
+            <span style="color:#f59e0b;font-weight:600"> — Currently DISABLED. Users can log in without a second factor.</span>
+            {% endif %}
+          </span>
+        </span>
+      </label>
+      <span id="mfa-badge" style="flex-shrink:0;padding:.2rem .65rem;border-radius:12px;font-size:.75rem;font-weight:700;{% if s.mfa_required %}background:rgba(34,197,94,.15);color:#22c55e{% else %}background:rgba(239,68,68,.15);color:#ef4444{% endif %}">
+        {% if s.mfa_required %}ON{% else %}OFF{% endif %}
+      </span>
+    </div>
+    <div class="form-hint" style="margin-top:.5rem">
+      <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+      The 2FA toggle takes effect immediately on the next login — no server restart required. Existing authenticated sessions are not interrupted; the setting applies at the next authentication.
+    </div>
+  </div>
+
+  <!-- ── Password Policy ────────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-key"></i> Password Policy</span>
+    </div>
+
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_pw_min">Minimum Password Length</label>
+         <input type="number" id="id_pw_min" name="password_min_length" class="form-control"
+           value="{{ s.password_min_length }}" min="1" max="128" autocomplete="off">
+        <div class="form-hint">Minimum characters required. Enforced when a user sets or changes their password.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_pw_history">Password History Count</label>
+         <input type="number" id="id_pw_history" name="password_history_count" class="form-control"
+           value="{{ s.password_history_count }}" min="0" max="20" autocomplete="off">
+        <div class="form-hint">Number of previous passwords a user cannot reuse (0 = no restriction, max 20).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Idle Session Timeout ────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-hourglass-half"></i> Idle Session Timeout</span>
+    </div>
+    <div class="form-hint" style="margin-bottom:.85rem">
+      <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+      Set how many <strong>minutes</strong> of inactivity before the user is automatically logged out. A 60-second warning appears first. Set to <strong>0</strong> to disable for that role.
+    </div>
+    <div class="form-row cols-3">
+      <div class="form-group">
+        <label class="form-label" for="id_to_sysadmin">System Administrator</label>
+        <div style="display:flex;align-items:center;gap:.5rem">
+             <input type="number" id="id_to_sysadmin" name="timeout_system_admin" class="form-control"
+               value="{% widthratio s.timeout_system_admin 60 1 %}" min="0" max="1440" autocomplete="off">
+          <span class="form-hint" style="margin:0;white-space:nowrap">min</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_to_adminview">Admin — View Only</label>
+        <div style="display:flex;align-items:center;gap:.5rem">
+             <input type="number" id="id_to_adminview" name="timeout_admin_view_only" class="form-control"
+               value="{% widthratio s.timeout_admin_view_only 60 1 %}" min="0" max="1440" autocomplete="off">
+          <span class="form-hint" style="margin:0;white-space:nowrap">min</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_to_adminedit">Admin — Edit &amp; Add</label>
+        <div style="display:flex;align-items:center;gap:.5rem">
+             <input type="number" id="id_to_adminedit" name="timeout_admin_edit_add" class="form-control"
+               value="{% widthratio s.timeout_admin_edit_add 60 1 %}" min="0" max="1440" autocomplete="off">
+          <span class="form-hint" style="margin:0;white-space:nowrap">min</span>
+        </div>
+      </div>
+    </div>
+    <div class="form-row cols-3">
+      <div class="form-group">
+        <label class="form-label" for="id_to_armorer">Armorer</label>
+        <div style="display:flex;align-items:center;gap:.5rem">
+             <input type="number" id="id_to_armorer" name="timeout_armorer" class="form-control"
+               value="{% widthratio s.timeout_armorer 60 1 %}" min="0" max="1440" autocomplete="off">
+          <span class="form-hint" style="margin:0;white-space:nowrap">min</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_to_superuser">Superuser</label>
+        <div style="display:flex;align-items:center;gap:.5rem">
+             <input type="number" id="id_to_superuser" name="timeout_superuser" class="form-control"
+               value="{% widthratio s.timeout_superuser 60 1 %}" min="0" max="1440" autocomplete="off">
+          <span class="form-hint" style="margin:0;white-space:nowrap">min</span>
+        </div>
+        <div class="form-hint">0 = no timeout (recommended for superuser).</div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:.25rem">
+        <div class="form-hint" style="margin:0">
+          <i class="fa-solid fa-lightbulb" style="color:var(--warning)"></i>
+          Common values: 15 = 15 min &bull; 30 = 30 min &bull; 60 = 1 hr &bull; 0 = never
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Transaction Settings ──────────────────────────────────────────────── -->
+  <div class="card mb-2">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-right-left"></i> Transaction Settings</span>
+    </div>
+
+    <!-- TR / PAR Defaults -->
+    <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">TR / PAR Defaults</div>
+
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_tr_default_return_hours">TR Return Deadline Default (hours)</label>
+        <input type="number" id="id_tr_default_return_hours" name="tr_default_return_hours" class="form-control"
+               value="{{ s.tr_default_return_hours }}" min="1" max="8760" autocomplete="off">
+        <div class="form-hint">Number of hours from issuance pre-filled in the Return Deadline field when Issuance Type is TR. Default: 24.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_default_issuance_type">Default Issuance Type</label>
+        <select id="id_default_issuance_type" name="default_issuance_type" class="form-control" autocomplete="off">
+          <option value="TR (Temporary Receipt)"{% if s.default_issuance_type == "TR (Temporary Receipt)" %} selected{% endif %}>TR (Temporary Receipt)</option>
+          <option value="PAR (Property Acknowledgement Receipt)"{% if s.default_issuance_type == "PAR (Property Acknowledgement Receipt)" %} selected{% endif %}>PAR (Property Acknowledgement Receipt)</option>
+        </select>
+        <div class="form-hint">Pre-selected Issuance Type when the New Transaction form first opens.</div>
+      </div>
+    </div>
+
+    <div class="form-group" style="background:{% if s.require_par_document %}rgba(34,197,94,.07){% else %}rgba(239,68,68,.07){% endif %};border:1px solid {% if s.require_par_document %}rgba(34,197,94,.25){% else %}rgba(239,68,68,.25){% endif %};border-radius:8px;padding:.9rem 1rem;display:flex;align-items:flex-start;gap:.85rem">
+      <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;flex:1">
+        <input type="checkbox" name="require_par_document" id="id_require_par_document"
+               {% if s.require_par_document %}checked{% endif %}
+               style="width:18px;height:18px;accent-color:var(--primary,#4f8ef7);cursor:pointer;flex-shrink:0" autocomplete="off">
+        <span>
+          <strong>Require signed PAR document for PAR issuances</strong><br>
+          <span style="font-size:.8rem;color:var(--muted)">When enabled, a signed PAR PDF must be uploaded before a PAR withdrawal can be submitted.{% if not s.require_par_document %} <span style="color:#f59e0b;font-weight:600">— Currently DISABLED.</span>{% endif %}</span>
+        </span>
+      </label>
+      <span style="flex-shrink:0;padding:.2rem .65rem;border-radius:12px;font-size:.75rem;font-weight:700;{% if s.require_par_document %}background:rgba(34,197,94,.15);color:#22c55e{% else %}background:rgba(239,68,68,.15);color:#ef4444{% endif %}">
+        {% if s.require_par_document %}ON{% else %}OFF{% endif %}
+      </span>
+    </div>
+
+    <!-- Divider -->
+    <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0 1rem">
+
+    <!-- Accessory Max Quantities -->
+    <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Accessory Max Quantities per Withdrawal</div>
+    <div class="form-hint" style="margin-bottom:.75rem">
+      <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+      Maximum units of each accessory type issuable in a single withdrawal. Validation rejects entries above these limits. Set to 0 to block that accessory type entirely.
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_max_holster">Pistol Holster — Max Qty</label>
+        <input type="number" id="id_max_holster" name="max_pistol_holster_qty" class="form-control"
+               value="{{ s.max_pistol_holster_qty }}" min="0" max="99" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_max_magpouch">Magazine Pouch — Max Qty</label>
+        <input type="number" id="id_max_magpouch" name="max_magazine_pouch_qty" class="form-control"
+               value="{{ s.max_magazine_pouch_qty }}" min="0" max="99" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-row cols-2">
+      <div class="form-group">
+        <label class="form-label" for="id_max_sling">Rifle Sling — Max Qty</label>
+        <input type="number" id="id_max_sling" name="max_rifle_sling_qty" class="form-control"
+               value="{{ s.max_rifle_sling_qty }}" min="0" max="99" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="id_max_bandoleer">Bandoleer — Max Qty</label>
+        <input type="number" id="id_max_bandoleer" name="max_bandoleer_qty" class="form-control"
+               value="{{ s.max_bandoleer_qty }}" min="0" max="99" autocomplete="off">
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- ── Transaction Form — Purpose Management ──────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem" id="purposes-card">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <span class="card-title"><i class="fa-solid fa-sliders"></i> Transaction Purposes</span>
+      <span style="font-size:.78rem;color:var(--muted)">{{ all_purposes|length }} purpose{{ all_purposes|length|pluralize }}</span>
+    </div>
+    <div class="form-hint" style="margin-bottom:.85rem">
+      <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+      Add, edit, or delete transaction purposes. Configure weapon visibility, auto-consumables, auto-accessories, auto TR-print, and the keyboard shortcut (hotkey) for each purpose.
+    </div>
+
+    <!-- Per-purpose delete forms (outside tables to avoid invalid HTML nesting) -->
+    {% for p in all_purposes %}
+    <form id="form-del-purpose-{{ p.pk }}" method="post"
+          action="{% url 'purpose-delete' p.pk %}">{% csrf_token %}</form>
+    {% endfor %}
+
+    <!-- Purpose table -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Purpose</th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Hotkey</th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Active"><i class="fa-solid fa-toggle-on"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Pistol"><i class="fa-solid fa-gun" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Rifle"><i class="fa-solid fa-rifle" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Auto Consumables"><i class="fa-solid fa-fire-flame-curved" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Auto Accessories"><i class="fa-solid fa-briefcase" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Auto Print TR"><i class="fa-solid fa-print" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)" title="Others-type (free-text)"><i class="fa-solid fa-pen-line" style="font-size:.8rem"></i></th>
+            <th style="text-align:center;padding:.4rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Order</th>
+            <th style="padding:.4rem .6rem;border-bottom:1px solid var(--border)"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in all_purposes %}
+          <tr id="purpose-row-{{ p.pk }}" style="border-bottom:1px solid var(--border)" data-pk="{{ p.pk }}">
+
+            <!-- ── View mode ─────────────────────────────────────── -->
+            <td class="p-view" style="padding:.45rem .6rem;font-weight:500">
+              {{ p.name }}{% if not p.is_active %} <span style="color:var(--muted);font-size:.75rem">(inactive)</span>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.hotkey %}<kbd style="font-size:.8rem">{{ p.hotkey }}</kbd>{% else %}<span style="color:var(--muted)">—</span>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.is_active %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.show_pistol %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.show_rifle %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.auto_consumables %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.auto_accessories %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.auto_print_tr %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem">
+              {% if p.is_others_type %}<i class="fa-solid fa-check" style="color:var(--success,#22c55e)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--muted)"></i>{% endif %}
+            </td>
+            <td class="p-view" style="text-align:center;padding:.45rem .6rem;color:var(--muted)">{{ p.order }}</td>
+
+            <!-- View actions -->
+            <td class="p-view" style="text-align:right;padding:.45rem .6rem;white-space:nowrap">
+              <button type="button" class="btn btn-secondary btn-sm btn-purpose-edit"
+                      data-pk="{{ p.pk }}" title="Edit purpose">
+                <i class="fa-solid fa-pencil"></i>
+              </button>
+              <button type="submit" form="form-del-purpose-{{ p.pk }}"
+                      class="btn btn-secondary btn-sm btn-purpose-delete"
+                      style="color:var(--danger)" title="Delete purpose"
+                      data-name="{{ p.name|escapejs }}">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+
+            <!-- ── Edit mode (hidden by default) ─────────────────── -->
+            <td class="p-edit" colspan="11" style="display:none;padding:.6rem .8rem;background:var(--surface-alt,var(--surface))">
+              <form method="post" action="{% url 'purpose-edit' p.pk %}" class="purpose-edit-form" autocomplete="off">
+                {% csrf_token %}
+                <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-start">
+
+                  <!-- Name -->
+                  <div style="flex:1 1 140px">
+                    <label for="pe-name-{{ p.pk }}" style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:.25rem">Name</label>
+                    <input type="text" id="pe-name-{{ p.pk }}" name="name" class="form-control" value="{{ p.name|escapejs }}"
+                           maxlength="100" required autocomplete="off" style="height:30px;font-size:.82rem">
+                  </div>
+
+                  <!-- Hotkey -->
+                  <div style="flex:0 0 90px">
+                    <label for="pe-hotkey-{{ p.pk }}" style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:.25rem">Hotkey</label>
+                    <input type="text" id="pe-hotkey-{{ p.pk }}" name="hotkey" class="form-control" value="{{ p.hotkey|escapejs }}"
+                           maxlength="20" placeholder="e.g. 1" autocomplete="off" style="height:30px;font-size:.82rem">
+                  </div>
+
+                  <!-- Order -->
+                  <div style="flex:0 0 70px">
+                    <label for="pe-order-{{ p.pk }}" style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:.25rem">Order</label>
+                    <input type="number" id="pe-order-{{ p.pk }}" name="order" class="form-control" value="{{ p.order }}"
+                           min="0" max="9999" autocomplete="off" style="height:30px;font-size:.82rem">
+                  </div>
+
+                  <!-- Flag checkboxes -->
+                  <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;padding-top:1.4rem">
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="is_active" {% if p.is_active %}checked{% endif %}> Active
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="show_pistol" {% if p.show_pistol %}checked{% endif %}> Pistol
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="show_rifle" {% if p.show_rifle %}checked{% endif %}> Rifle
+                    </label>
+                  </div>
+                  <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;padding-top:1.4rem">
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="auto_consumables" {% if p.auto_consumables %}checked{% endif %}> Auto Consumables
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="auto_accessories" {% if p.auto_accessories %}checked{% endif %}> Auto Accessories
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="auto_print_tr" {% if p.auto_print_tr %}checked{% endif %}> Auto Print TR
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer">
+                      <input type="checkbox" name="is_others_type" {% if p.is_others_type %}checked{% endif %}> Others-type
+                    </label>
+                  </div>
+
+                  <!-- Loadout quantities -->
+                  <details style="flex:1 1 100%;font-size:.82rem">
+                    <summary style="cursor:pointer;color:var(--muted);user-select:none;padding:.15rem 0">
+                      <i class="fa-solid fa-box-open" style="font-size:.78rem"></i> Loadout Quantities
+                    </summary>
+                    <div style="display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.5rem">
+                      <div style="flex:0 0 130px"><label for="pe-holster-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Holster Qty</label><input type="number" id="pe-holster-{{ p.pk }}" name="holster_qty" class="form-control" value="{{ p.holster_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-magpouch-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Mag Pouch Qty</label><input type="number" id="pe-magpouch-{{ p.pk }}" name="mag_pouch_qty" class="form-control" value="{{ p.mag_pouch_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-pmag-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Pistol Mag Qty</label><input type="number" id="pe-pmag-{{ p.pk }}" name="pistol_mag_qty" class="form-control" value="{{ p.pistol_mag_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-pammo-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Pistol Ammo Qty</label><input type="number" id="pe-pammo-{{ p.pk }}" name="pistol_ammo_qty" class="form-control" value="{{ p.pistol_ammo_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-sling-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Rifle Sling Qty</label><input type="number" id="pe-sling-{{ p.pk }}" name="rifle_sling_qty" class="form-control" value="{{ p.rifle_sling_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-rsmag-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Rifle Short Mag Qty</label><input type="number" id="pe-rsmag-{{ p.pk }}" name="rifle_short_mag_qty" class="form-control" value="{{ p.rifle_short_mag_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-rlmag-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Rifle Long Mag Qty</label><input type="number" id="pe-rlmag-{{ p.pk }}" name="rifle_long_mag_qty" class="form-control" value="{{ p.rifle_long_mag_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-rammo-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Rifle Ammo Qty</label><input type="number" id="pe-rammo-{{ p.pk }}" name="rifle_ammo_qty" class="form-control" value="{{ p.rifle_ammo_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                      <div style="flex:0 0 130px"><label for="pe-band-{{ p.pk }}" style="font-size:.77rem;color:var(--muted);display:block;margin-bottom:.2rem">Bandoleer Qty</label><input type="number" id="pe-band-{{ p.pk }}" name="bandoleer_qty" class="form-control" value="{{ p.bandoleer_qty }}" min="0" max="99" autocomplete="off" style="height:28px;font-size:.82rem"></div>
+                    </div>
+                  </details>
+
+                  <!-- Save / Cancel -->
+                  <div style="flex:1 1 100%;display:flex;gap:.5rem;margin-top:.25rem">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      <i class="fa-solid fa-floppy-disk"></i> Save
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm btn-purpose-cancel"
+                            data-pk="{{ p.pk }}">
+                      <i class="fa-solid fa-xmark"></i> Cancel
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="11" style="padding:1rem;text-align:center;color:var(--muted)">No purposes configured.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Add New Purpose ──────────────────────────────────────────────── -->
+    <div style="margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--border)">
+      <p style="font-size:.82rem;font-weight:600;margin-bottom:.5rem">
+        <i class="fa-solid fa-plus" style="color:var(--primary)"></i> Add New Purpose
+      </p>
+      <form method="post" action="{% url 'purpose-add' %}" autocomplete="off"
+            style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end">
+        {% csrf_token %}
+        <div style="flex:1 1 160px">
+          <label for="pa-name" style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:.25rem">Name <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="pa-name" name="name" class="form-control" maxlength="100" required
+                 placeholder="e.g. Field Training" autocomplete="off" style="height:32px;font-size:.85rem">
+        </div>
+        <div style="flex:0 0 100px">
+          <label for="pa-hotkey" style="font-size:.78rem;color:var(--muted);display:block;margin-bottom:.25rem">Hotkey</label>
+          <input type="text" id="pa-hotkey" name="hotkey" class="form-control" maxlength="20"
+                 placeholder="e.g. 7" autocomplete="off" style="height:32px;font-size:.85rem">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm" style="height:32px;white-space:nowrap">
+          <i class="fa-solid fa-plus"></i> Add Purpose
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Changes take effect immediately for new transactions.</div>
+
+<!-- ── Personnel Groups ────────────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem" id="groups-card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span class="card-title"><i class="fa-solid fa-layer-group"></i> Personnel Groups</span>
+    <span style="font-size:.78rem;color:var(--muted)">{{ personnel_groups|length }} group{{ personnel_groups|length|pluralize }}</span>
+  </div>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:.85rem">
+    <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+    Groups available when adding or importing personnel. Renaming a group updates all existing personnel automatically.
+  </div>
+
+  <!-- Hidden forms live OUTSIDE the table to avoid browser HTML-parser issues -->
+  {% for grp in personnel_groups %}
+  <form id="form-delete-{{ grp.pk }}" method="post" action="{% url 'group-delete' grp.pk %}"
+        data-group-delete data-group-name="{{ grp.name|escapejs }}">
+    {% csrf_token %}
+  </form>
+  <form id="form-rename-{{ grp.pk }}" method="post" action="{% url 'group-rename' grp.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="name" id="group-input-{{ grp.pk }}">
+  </form>
+  {% endfor %}
+
+  <!-- Group list -->
+  <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:1rem">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:.35rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Group Name</th>
+        <th style="text-align:center;padding:.35rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Personnel</th>
+        <th style="padding:.35rem .6rem;border-bottom:1px solid var(--border)"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for grp in personnel_groups %}
+      <tr style="border-bottom:1px solid var(--border)">
+        <!-- Static name / inline rename input -->
+        <td style="padding:.5rem .6rem;font-weight:500">
+          <span id="group-name-{{ grp.pk }}">{{ grp.name }}</span>
+          <input type="text" id="group-input-display-{{ grp.pk }}"
+                 class="form-control" maxlength="50" autocomplete="off"
+                 data-syncs-to="group-input-{{ grp.pk }}"
+                 style="display:none;height:30px;font-size:.85rem;padding:.15rem .5rem;min-width:140px">
+        </td>
+        <td style="text-align:center;padding:.5rem .6rem;color:var(--muted)">
+          {{ grp.personnel_count }}
+        </td>
+        <td style="text-align:right;padding:.5rem .6rem;white-space:nowrap">
+          <!-- View mode -->
+          <span id="group-view-{{ grp.pk }}" style="display:inline-flex;gap:.4rem">
+            <button type="button" class="btn btn-secondary btn-sm btn-group-rename"
+                    data-pk="{{ grp.pk }}" data-name="{{ grp.name|escapejs }}" title="Rename">
+              <i class="fa-solid fa-pencil"></i>
+            </button>
+            <button type="submit" form="form-delete-{{ grp.pk }}"
+                    class="btn btn-secondary btn-sm" title="Delete" style="color:var(--danger)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </span>
+          <!-- Edit mode -->
+          <span id="group-edit-{{ grp.pk }}" style="display:none;gap:.4rem;align-items:center;flex-wrap:nowrap">
+            <button type="submit" form="form-rename-{{ grp.pk }}"
+                    class="btn btn-primary btn-sm" style="height:30px;padding:.15rem .6rem" title="Save">
+              <i class="fa-solid fa-check"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm btn-group-cancel"
+                    data-pk="{{ grp.pk }}" style="height:30px;padding:.15rem .6rem" title="Cancel">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </span>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3" style="text-align:center;color:var(--muted);padding:1.5rem">
+          No groups defined yet. Add one below.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Add group form -->
+  <form method="post" action="{% url 'group-add' %}" style="display:flex;gap:.5rem;align-items:center">
+    {% csrf_token %}
+        <label for="id_new_group_name" class="form-label" style="margin-bottom:0">New group name
+          <input type="text" id="id_new_group_name" name="name" class="form-control" maxlength="50"
+            placeholder="New group name…" style="max-width:220px" autocomplete="off">
+        </label>
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus"></i> Add Group
+    </button>
+  </form>
+</div>
+
+<!-- ── Personnel Squadrons ────────────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem" id="squadrons-card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span class="card-title"><i class="fa-solid fa-building-shield"></i> Personnel Squadrons</span>
+    <span style="font-size:.78rem;color:var(--muted)">{{ personnel_squadrons|length }} squadron{{ personnel_squadrons|length|pluralize }}</span>
+  </div>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:.85rem">
+    <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+    Squadrons available when adding or importing personnel. Renaming a squadron updates all existing personnel automatically.
+  </div>
+
+  <!-- Hidden forms live OUTSIDE the table to avoid browser HTML-parser issues -->
+  {% for sq in personnel_squadrons %}
+  <form id="form-sq-delete-{{ sq.pk }}" method="post" action="{% url 'squadron-delete' sq.pk %}"
+        data-squadron-delete data-squadron-name="{{ sq.name|escapejs }}">
+    {% csrf_token %}
+  </form>
+  <form id="form-sq-rename-{{ sq.pk }}" method="post" action="{% url 'squadron-rename' sq.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="name" id="sq-input-{{ sq.pk }}">
+  </form>
+  {% endfor %}
+
+  <!-- Squadron list -->
+  <table style="width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:1rem">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:.35rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Squadron Name</th>
+        <th style="text-align:center;padding:.35rem .6rem;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border)">Personnel</th>
+        <th style="padding:.35rem .6rem;border-bottom:1px solid var(--border)"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sq in personnel_squadrons %}
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:.5rem .6rem;font-weight:500">
+          <span id="sq-name-{{ sq.pk }}">{{ sq.name }}</span>
+          <input type="text" id="sq-input-display-{{ sq.pk }}"
+                 class="form-control" maxlength="50" autocomplete="off"
+                 data-sq-syncs-to="sq-input-{{ sq.pk }}"
+                 style="display:none;height:30px;font-size:.85rem;padding:.15rem .5rem;min-width:140px">
+        </td>
+        <td style="text-align:center;padding:.5rem .6rem;color:var(--muted)">
+          {{ sq.personnel_count }}
+        </td>
+        <td style="text-align:right;padding:.5rem .6rem;white-space:nowrap">
+          <!-- View mode -->
+          <span id="sq-view-{{ sq.pk }}" style="display:inline-flex;gap:.4rem">
+            <button type="button" class="btn btn-secondary btn-sm btn-sq-rename"
+                    data-pk="{{ sq.pk }}" data-name="{{ sq.name|escapejs }}" title="Rename">
+              <i class="fa-solid fa-pencil"></i>
+            </button>
+            <button type="submit" form="form-sq-delete-{{ sq.pk }}"
+                    class="btn btn-secondary btn-sm" title="Delete" style="color:var(--danger)">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </span>
+          <!-- Edit mode -->
+          <span id="sq-edit-{{ sq.pk }}" style="display:none;gap:.4rem;align-items:center;flex-wrap:nowrap">
+            <button type="submit" form="form-sq-rename-{{ sq.pk }}"
+                    class="btn btn-primary btn-sm" style="height:30px;padding:.15rem .6rem" title="Save">
+              <i class="fa-solid fa-check"></i>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm btn-sq-cancel"
+                    data-pk="{{ sq.pk }}" style="height:30px;padding:.15rem .6rem" title="Cancel">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </span>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3" style="text-align:center;color:var(--muted);padding:1.5rem">
+          No squadrons defined yet. Add one below.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Add squadron form -->
+  <form method="post" action="{% url 'squadron-add' %}" style="display:flex;gap:.5rem;align-items:center">
+    {% csrf_token %}
+    <label for="id_new_squadron_name" class="form-label" style="margin-bottom:0">New squadron name
+      <input type="text" id="id_new_squadron_name" name="name" class="form-control" maxlength="50"
+        placeholder="New squadron name…" style="max-width:220px" autocomplete="off">
+    </label>
+    <button type="submit" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus"></i> Add Squadron
+    </button>
+  </form>
+</div>
+
+<!-- ── Per-User 2FA Exemptions ─────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span class="card-title"><i class="fa-solid fa-user-shield"></i> Per-User 2FA Control</span>
+    <span style="font-size:.78rem;color:var(--muted)">Superuser accounts are always exempt</span>
+  </div>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem">
+    <i class="fa-solid fa-circle-info" style="color:var(--primary)"></i>
+    Toggle 2FA on or off for individual users. Only takes effect when site-wide 2FA enforcement is also <strong>ON</strong>.
+  </div>
+  <table class="data-table" style="font-size:.85rem">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th style="text-align:center">Device</th>
+        <th style="text-align:center">Require 2FA</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in non_super_users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong>{% if u.get_full_name %} <span style="color:var(--muted);font-weight:400">— {{ u.get_full_name }}</span>{% endif %}</td>
+        <td>
+          {% with role=u.profile.role %}
+            {% if role == 'Administrator — View Only' or role == 'Administrator — Edit & Add' or role == 'Administrator' %}
+              <span class="badge badge-orange" style="font-size:.72rem">{{ role }}</span>
+            {% elif role == 'Armorer' %}
+              <span class="badge badge-blue" style="font-size:.72rem">{{ role }}</span>
+            {% else %}
+              <span class="badge" style="background:var(--surface3);font-size:.72rem">{{ role|default:"—" }}</span>
+            {% endif %}
+          {% endwith %}
+        </td>
+        <td style="text-align:center">
+          {% if u.pk in enrolled_2fa_ids %}
+            <span style="color:#22c55e" title="TOTP device enrolled"><i class="fa-solid fa-shield-check"></i> Enrolled</span>
+          {% else %}
+            <span style="color:var(--muted)" title="No TOTP device"><i class="fa-solid fa-shield-slash"></i> None</span>
+          {% endif %}
+        </td>
+        <td style="text-align:center">
+          {% if u.profile.require_2fa %}
+            <span style="color:#22c55e;font-weight:600"><i class="fa-solid fa-toggle-on"></i> Required</span>
+          {% else %}
+            <span style="color:#f59e0b;font-weight:600"><i class="fa-solid fa-toggle-off"></i> Exempt</span>
+          {% endif %}
+        </td>
+        <td style="text-align:right">
+          <form method="post" action="{% url 'user-toggle-2fa' u.pk %}">
+            {% csrf_token %}
+            {% if u.profile.require_2fa %}
+              <button type="submit" class="btn btn-secondary btn-sm" title="Click to exempt {{ u.username }} from 2FA"
+                      style="color:var(--danger);font-size:.78rem">
+                <i class="fa-solid fa-ban"></i> Exempt
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-secondary btn-sm" title="Click to require 2FA for {{ u.username }}"
+                      style="color:#22c55e;font-size:.78rem">
+                <i class="fa-solid fa-shield-check"></i> Require
+              </button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">No non-superuser accounts found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if request.user.is_superuser %}
+<!-- ── OREX Simulation ──────────────────────────────────────────────────── -->
+<!-- Form card -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem;border:1.5px solid #1a6b3a44">
+  <div class="card-header" style="background:rgba(26,107,58,.08)">
+    <span class="card-title" style="color:#1a6b3a">
+      <i class="fa-solid fa-person-rifle"></i> OREX Withdrawal Simulation
+    </span>
+  </div>
+  <p style="font-size:.84rem;color:var(--muted);margin-bottom:1rem">
+    Pairs Active personnel (no rifle issued) with Available rifles and creates
+    <strong>TR&thinsp;/&thinsp;OREX</strong> withdrawal transactions. Run as
+    <em>Dry-run</em> first to validate before committing.
+  </p>
+  <form method="post" action="{% url 'settings-simulate-orex' %}" id="sim-orex-form" autocomplete="off">
+    {% csrf_token %}
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin-bottom:1.1rem">
+      <label style="font-size:.85rem;font-weight:600;display:flex;flex-direction:column;gap:.25rem">
+        Personnel count
+        <input type="number" name="sim_count" value="114" min="1" max="500" autocomplete="off"
+               style="width:90px;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem">
+      </label>
+      <label style="font-size:.85rem;font-weight:600;display:flex;flex-direction:column;gap:.25rem">
+        Operator username
+        <input type="text" name="sim_operator" value="{{ request.user.username }}" autocomplete="off"
+               style="width:150px;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem">
+      </label>
+      <label style="font-size:.85rem;font-weight:600;display:flex;flex-direction:column;gap:.25rem">
+        Seconds per transaction
+        <input type="number" name="sim_delay" value="5" min="0" max="60" autocomplete="off"
+               style="width:90px;padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.9rem">
+      </label>
+    </div>
+    <label style="display:flex;align-items:center;gap:.6rem;font-size:.88rem;margin-bottom:1rem;cursor:pointer">
+      <input type="checkbox" name="sim_commit" value="1" id="sim-commit-chk">
+      <span><strong>Commit to DB</strong> <span style="color:var(--muted)">&mdash; unchecked = dry-run only (validates without saving)</span></span>
+    </label>
+    <button type="submit" id="btn-sim-orex" class="btn btn-sm"
+            style="background:#1a6b3a;color:#fff;border:none;padding:.45rem 1.1rem;border-radius:6px;cursor:pointer">
+      <i class="fa-solid fa-person-rifle"></i> Run OREX Simulation
+    </button>
+  </form>
+</div>
+
+<!-- Status card (live-polling) -->
+<div class="card mb-2" style="max-width:980px;border:1.5px solid #1a6b3a44">
+  <div class="card-header" style="background:rgba(26,107,58,.08)">
+    <span class="card-title" style="color:#1a6b3a">
+      <i class="fa-solid fa-chart-line"></i> Simulation Status
+    </span>
+  </div>
+  <div id="sim-status-body" style="min-height:60px;padding:.25rem 0">
+    <span style="color:var(--muted);font-size:.85rem">Loading&hellip;</span>
+  </div>
+</div>
+
+<span id="sim-status-meta"
+      data-url="{% url 'simulate-orex-status' %}"
+      data-reset-url="{% url 'simulate-orex-reset' %}"
+      hidden></span>
+
+<!-- ── Manual Database Backup ───────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem;border:1.5px solid #0d6efd33">
+  <div class="card-header" style="background:rgba(13,110,253,.07)">
+    <span class="card-title" style="color:#4f8ef7">
+      <i class="fa-solid fa-database"></i> Database Backup
+    </span>
+  </div>
+  <p style="font-size:.84rem;color:var(--muted);margin-bottom:.75rem">
+    <i class="fa-solid fa-circle-info" style="color:#4f8ef7"></i>
+    Creates a full backup snapshot right now: <strong>database</strong>, <strong>media files</strong>,
+    and <strong>.env</strong> credentials — identical to the automated <code>backup.sh</code> cron job
+    (steps 1–3). Saved to <code>/var/backups/armguard/</code>.
+    If the external drive (<code>RDSDRIVEL</code>) is mounted at <code>/mnt/backup</code>,
+    the backup is also synced there automatically (step 4).
+  </p>
+  <div style="display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;margin-bottom:.75rem">
+    <button type="button" id="btn-manual-backup" class="btn btn-sm"
+            style="background:#0d6efd;color:#fff;border:none;padding:.45rem 1.2rem;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:.45rem">
+      <i class="fa-solid fa-floppy-disk"></i> Save Backup Now
+    </button>
+    <span id="backup-status" style="font-size:.83rem"></span>
+  </div>
+  <!-- Step-by-step result panel (hidden until a backup runs) -->
+  <div id="backup-steps" style="display:none;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:.82rem">
+    <div style="padding:.4rem .75rem;background:var(--surface2);font-size:.75rem;font-weight:600;color:var(--muted);letter-spacing:.04em">BACKUP STEPS</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tbody id="backup-steps-body"></tbody>
+    </table>
+    <div id="backup-total-row" style="padding:.4rem .75rem;background:var(--surface2);font-size:.78rem;color:var(--muted);border-top:1px solid var(--border)"></div>
+  </div>
+  <span id="backup-url" data-url="{% url 'settings-manual-backup' %}" hidden></span>
+</div>
+
+<!-- ── Data Truncation ──────────────────────────────────────────────────── -->
+<div class="card mb-2" style="max-width:980px;margin-top:1.5rem;border:1.5px solid #c0392b22">
+  <div class="card-header" style="background:rgba(192,57,43,.08)">
+    <span class="card-title" style="color:#c0392b">
+      <i class="fa-solid fa-trash-can"></i> Data Truncation
+    </span>
+  </div>
+  <p style="font-size:.84rem;color:var(--muted);margin-bottom:1rem">
+    <i class="fa-solid fa-triangle-exclamation" style="color:#e67e22"></i>
+    <strong>Irreversible.</strong> Selected records will be permanently deleted. This action is logged in the audit trail.
+  </p>
+  <form method="post" action="{% url 'settings-truncate' %}" id="truncate-form" autocomplete="off">
+    {% csrf_token %}
+
+    <div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem">
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.9rem">
+        <input type="checkbox" name="truncate_transaction_logs" value="1">
+        <span><strong>Transaction Logs</strong> <span style="color:var(--muted);font-size:.8rem">— all TransactionLogs records</span></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.9rem">
+        <input type="checkbox" name="truncate_transactions" value="1">
+        <span><strong>Transactions</strong> <span style="color:var(--muted);font-size:.8rem">— all Transaction records</span></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.6rem;font-size:.9rem">
+        <input type="checkbox" name="truncate_snapshots" value="1">
+        <span><strong>Analytics Snapshots</strong> <span style="color:var(--muted);font-size:.8rem">— all daily inventory snapshots</span></span>
+      </label>
+    </div>
+
+    <div style="margin-bottom:1rem">
+      <label for="id_confirm_truncate" style="font-size:.85rem;font-weight:600;display:block;margin-bottom:.35rem">
+        Type <code>TRUNCATE</code> to confirm
+      </label>
+      <input type="text" id="id_confirm_truncate" name="confirm_truncate" autocomplete="off"
+             placeholder="TRUNCATE"
+             style="width:100%;max-width:260px;padding:.45rem .7rem;border-radius:6px;border:1px solid #c0392b88;background:var(--surface);color:var(--text);font-family:monospace;font-size:.9rem">
+    </div>
+
+    <button type="submit" id="btn-truncate" class="btn btn-sm"
+            style="background:#c0392b;color:#fff;border:none;padding:.45rem 1.1rem;border-radius:6px;cursor:pointer">
+      <i class="fa-solid fa-trash-can"></i> Truncate Selected
+    </button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/dashboard_sim_status.js' %}"></script>
+<script src="{% static 'js/settings.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,76 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pistols — ARMGUARD{% endblock %}
+{% block page_title %}Pistols{% endblock %}
+{% block page_sub %}Inventory management{% endblock %}
+
+{% block topbar_actions %}
+<div class="flex gap-2" style="align-items:center">
+  {% if can_add %}
+  <a href="{% url 'pistol-add' %}" class="btn btn-primary btn-sm">
+    <i class="fa-solid fa-plus"></i> Add Pistol
+  </a>
+  {% endif %}
+  <span class="stat-card accent-green" style="padding:.4rem .85rem;display:inline-flex;flex-direction:column">
+    <span style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Available</span>
+    <span style="font-weight:700;color:var(--green)">{{ available }}</span>
+  </span>
+  <span class="stat-card accent-red" style="padding:.4rem .85rem;display:inline-flex;flex-direction:column">
+    <span style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Issued</span>
+    <span style="font-weight:700;color:var(--red)">{{ issued }}</span>
+  </span>
+  <span class="stat-card" style="padding:.4rem .85rem;display:inline-flex;flex-direction:column">
+    <span style="font-size:.65rem;color:var(--muted);text-transform:uppercase">Total</span>
+    <span style="font-weight:700">{{ total }}</span>
+  </span>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+.main{height:100vh;min-height:unset;overflow:hidden}
+.page-body{display:flex;flex-direction:column;overflow:hidden;padding-bottom:.75rem}
+.page-body>.card{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.page-body>.card>.filter-bar{flex-shrink:0}
+.page-body>.card>.table-wrap{flex:1;overflow-y:auto;min-height:0}
+.page-body>.card table tbody td{padding:.45rem .85rem}
+.page-body>.card table thead th{padding:.45rem .85rem}
+</style>
+<div class="card">
+  <!-- Filter -->
+  <div class="filter-bar">
+    <form id="pistol-filter-form" method="get" class="search-bar" style="flex:1" data-url="{% url 'pistol-list' %}">
+      <div class="input-wrap" style="flex:1;max-width:300px">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none"></i>
+        <input id="pistol-q" type="text" name="q" value="{{ request.GET.q }}" class="form-control"
+               placeholder="Serial, model, item ID…" style="padding-left:2.1rem" autocomplete="off">
+      </div>
+      <select id="pistol-model" name="model" class="form-control" style="max-width:200px">
+        <option value="">All Models</option>
+        {% for key, label in pistol_model_choices %}
+        <option value="{{ key }}" {% if selected_model == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select id="pistol-status" name="status" class="form-control" style="max-width:160px">
+        <option value="">All Status</option>
+        <option value="Available" {% if request.GET.status == 'Available' %}selected{% endif %}>Available</option>
+        <option value="Issued" {% if request.GET.status == 'Issued' %}selected{% endif %}>Issued</option>
+        <option value="Under Maintenance" {% if request.GET.status == 'Under Maintenance' %}selected{% endif %}>Maintenance</option>
+      </select>
+      {% if request.GET.q or request.GET.status or request.GET.model %}
+        <a href="{% url 'pistol-list' %}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+    </form>
+    <span id="pistol-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ page_obj.paginator.count }} records</span>
+  </div>
+
+  <div id="pistol-results" class="table-wrap">
+    {% include 'inventory/pistol_rows.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pistol_list.js' %}"></script>
+{% endblock %}

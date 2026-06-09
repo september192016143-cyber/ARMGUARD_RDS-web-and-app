@@ -1,0 +1,216 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — ARMGUARD{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_sub %}Firearm discrepancy record{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'discrepancy-list' %}" class="btn btn-secondary btn-sm">
+  <i class="fa-solid fa-arrow-left"></i> Back to List
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:680px">
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-error" role="alert">
+      {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+
+      <!-- Pistol -->
+      <div>
+        <label class="form-label">Pistol <span style="color:var(--muted);font-size:.72rem">(leave blank if rifle)</span></label>
+        {{ form.pistol }}
+        {% if form.pistol.errors %}<div class="form-error">{{ form.pistol.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Rifle -->
+      <div>
+        <label class="form-label">Rifle <span style="color:var(--muted);font-size:.72rem">(leave blank if pistol)</span></label>
+        {{ form.rifle }}
+        {% if form.rifle.errors %}<div class="form-error">{{ form.rifle.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Issuer -->
+      <div>
+        <label class="form-label">Issuer</label>
+        {{ form.issuer }}
+        {% if form.issuer.errors %}<div class="form-error">{{ form.issuer.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Withdrawer -->
+      <div>
+        <label class="form-label">Withdrawer</label>
+        {{ form.withdrawer }}
+        {% if form.withdrawer.errors %}<div class="form-error">{{ form.withdrawer.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Related Transaction -->
+      <div style="grid-column:1/-1">
+        <label class="form-label">Related Transaction <span style="color:var(--muted);font-size:.72rem">(optional)</span></label>
+        {{ form.related_transaction }}
+        {% if form.related_transaction.errors %}<div class="form-error">{{ form.related_transaction.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Discrepancy Type -->
+      <div>
+        <label class="form-label">Discrepancy Type</label>
+        {{ form.discrepancy_type }}
+        {% if form.discrepancy_type.errors %}<div class="form-error">{{ form.discrepancy_type.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Status -->
+      <div>
+        <label class="form-label">Status</label>
+        {{ form.status }}
+        {% if form.status.errors %}<div class="form-error">{{ form.status.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Description -->
+      <div style="grid-column:1/-1">
+        <label class="form-label">Description</label>
+        {{ form.description }}
+        {% if form.description.errors %}<div class="form-error">{{ form.description.errors }}</div>{% endif %}
+      </div>
+
+      <!-- Photo Evidence (up to 5 images) -->
+      <div style="grid-column:1/-1">
+        <label class="form-label">Photo Evidence <span style="color:var(--muted);font-size:.72rem">(optional — up to 5 images)</span></label>
+
+        <!-- Via Phone button (targets next empty slot) -->
+        <div style="margin-bottom:.75rem">
+          <button type="button" class="btn btn-secondary btn-sm" id="disc-phone-btn">
+            <i class="fa-solid fa-mobile-screen-button"></i> Via Phone
+          </button>
+        </div>
+
+        <!-- 5 image slots -->
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.5rem">
+
+          <!-- Slot 1 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+            <div style="width:110px;height:90px;border:1px dashed var(--border);border-radius:.4rem;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
+              {% if object.image %}<img id="disc-thumb-1" src="{{ object.image.url }}" alt="" style="width:100%;height:100%;object-fit:cover">{% else %}<img id="disc-thumb-1" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">{% endif %}
+              <span id="disc-empty-1" style="color:var(--muted);font-size:1.75rem{% if object.image %};display:none{% endif %}">+</span>
+            </div>
+            <div style="display:flex;gap:.25rem">
+              <button type="button" class="btn btn-secondary btn-sm" id="disc-choose-1" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+              <button type="button" class="btn btn-danger btn-sm" id="disc-clear-1" title="Remove" style="font-size:.65rem;padding:.2rem .45rem{% if not object.image %};display:none{% endif %}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+
+          <!-- Slot 2 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+            <div style="width:110px;height:90px;border:1px dashed var(--border);border-radius:.4rem;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
+              {% if object.image_2 %}<img id="disc-thumb-2" src="{{ object.image_2.url }}" alt="" style="width:100%;height:100%;object-fit:cover">{% else %}<img id="disc-thumb-2" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">{% endif %}
+              <span id="disc-empty-2" style="color:var(--muted);font-size:1.75rem{% if object.image_2 %};display:none{% endif %}">+</span>
+            </div>
+            <div style="display:flex;gap:.25rem">
+              <button type="button" class="btn btn-secondary btn-sm" id="disc-choose-2" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+              <button type="button" class="btn btn-danger btn-sm" id="disc-clear-2" title="Remove" style="font-size:.65rem;padding:.2rem .45rem{% if not object.image_2 %};display:none{% endif %}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+
+          <!-- Slot 3 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+            <div style="width:110px;height:90px;border:1px dashed var(--border);border-radius:.4rem;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
+              {% if object.image_3 %}<img id="disc-thumb-3" src="{{ object.image_3.url }}" alt="" style="width:100%;height:100%;object-fit:cover">{% else %}<img id="disc-thumb-3" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">{% endif %}
+              <span id="disc-empty-3" style="color:var(--muted);font-size:1.75rem{% if object.image_3 %};display:none{% endif %}">+</span>
+            </div>
+            <div style="display:flex;gap:.25rem">
+              <button type="button" class="btn btn-secondary btn-sm" id="disc-choose-3" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+              <button type="button" class="btn btn-danger btn-sm" id="disc-clear-3" title="Remove" style="font-size:.65rem;padding:.2rem .45rem{% if not object.image_3 %};display:none{% endif %}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+
+          <!-- Slot 4 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+            <div style="width:110px;height:90px;border:1px dashed var(--border);border-radius:.4rem;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
+              {% if object.image_4 %}<img id="disc-thumb-4" src="{{ object.image_4.url }}" alt="" style="width:100%;height:100%;object-fit:cover">{% else %}<img id="disc-thumb-4" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">{% endif %}
+              <span id="disc-empty-4" style="color:var(--muted);font-size:1.75rem{% if object.image_4 %};display:none{% endif %}">+</span>
+            </div>
+            <div style="display:flex;gap:.25rem">
+              <button type="button" class="btn btn-secondary btn-sm" id="disc-choose-4" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+              <button type="button" class="btn btn-danger btn-sm" id="disc-clear-4" title="Remove" style="font-size:.65rem;padding:.2rem .45rem{% if not object.image_4 %};display:none{% endif %}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+
+          <!-- Slot 5 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem">
+            <div style="width:110px;height:90px;border:1px dashed var(--border);border-radius:.4rem;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#0d1117">
+              {% if object.image_5 %}<img id="disc-thumb-5" src="{{ object.image_5.url }}" alt="" style="width:100%;height:100%;object-fit:cover">{% else %}<img id="disc-thumb-5" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">{% endif %}
+              <span id="disc-empty-5" style="color:var(--muted);font-size:1.75rem{% if object.image_5 %};display:none{% endif %}">+</span>
+            </div>
+            <div style="display:flex;gap:.25rem">
+              <button type="button" class="btn btn-secondary btn-sm" id="disc-choose-5" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+              <button type="button" class="btn btn-danger btn-sm" id="disc-clear-5" title="Remove" style="font-size:.65rem;padding:.2rem .45rem{% if not object.image_5 %};display:none{% endif %}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+
+        </div><!-- /image slots -->
+
+        <!-- Hidden Django file inputs -->
+        <div style="display:none">
+          {{ form.image }}{{ form.image_2 }}{{ form.image_3 }}{{ form.image_4 }}{{ form.image_5 }}
+        </div>
+      </div>
+
+      {% if form.resolved_by %}
+      <!-- Resolution fields (edit only) -->
+      <div>
+        <label class="form-label">Resolved By</label>
+        {{ form.resolved_by }}
+        {% if form.resolved_by.errors %}<div class="form-error">{{ form.resolved_by.errors }}</div>{% endif %}
+      </div>
+      <div>
+        <label class="form-label">Resolved At</label>
+        {{ form.resolved_at }}
+        {% if form.resolved_at.errors %}<div class="form-error">{{ form.resolved_at.errors }}</div>{% endif %}
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="form-label">Resolution Notes</label>
+        {{ form.resolution_notes }}
+        {% if form.resolution_notes.errors %}<div class="form-error">{{ form.resolution_notes.errors }}</div>{% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div style="display:flex;gap:.75rem;justify-content:flex-end">
+      <a href="{% url 'discrepancy-list' %}" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        <i class="fa-solid fa-floppy-disk"></i> Save
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Phone Capture Overlay — kept inside #main-content so PJAX re-injects it on every navigation -->
+<div id="disc-phone-overlay"
+     style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:.75rem"
+     aria-modal="true" role="dialog">
+  <div style="background:var(--card,#1e2535);border:1px solid var(--border,#2d3550);border-radius:.75rem;padding:1.5rem;width:min(380px,96vw);display:flex;flex-direction:column;align-items:center;gap:1rem">
+    <div style="width:100%;display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0;font-size:1rem;font-weight:600"><i class="fa-solid fa-mobile-screen-button"></i> Capture via Phone</h3>
+      <button type="button" id="disc-phone-close" style="background:none;border:none;color:var(--muted,#6b7897);font-size:1.4rem;cursor:pointer;padding:.25rem;line-height:1">&times;</button>
+    </div>
+    <p style="margin:0;font-size:.8rem;color:var(--muted,#6b7897);text-align:center">Scan the QR code with the phone camera &rarr; take photo &rarr; form updates automatically.</p>
+    <img id="disc-phone-qr" src="" alt="QR Code" style="display:none;width:200px;height:200px;border-radius:.5rem;border:3px solid var(--border,#2d3550)">
+    <div id="disc-phone-status" style="font-size:.85rem;color:var(--muted,#6b7897);text-align:center">Generating QR code&hellip;</div>
+    <a id="disc-phone-link" href="#" target="_blank" rel="noopener noreferrer"
+       style="display:none;font-size:.75rem;color:var(--primary,#c9952b);word-break:break-all;text-align:center">Or open this link on your phone &rarr;</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/json" id="disc-capture-config">{"initUrl": "{% url 'serial-capture-init' %}", "phoneBtnId": "disc-phone-btn", "overlayId": "disc-phone-overlay", "closeBtnId": "disc-phone-close", "qrImgId": "disc-phone-qr", "statusElId": "disc-phone-status", "linkElId": "disc-phone-link", "slots": [{"inputId": "id_image", "chooseBtnId": "disc-choose-1", "clearBtnId": "disc-clear-1", "thumbId": "disc-thumb-1", "emptyIconId": "disc-empty-1"}, {"inputId": "id_image_2", "chooseBtnId": "disc-choose-2", "clearBtnId": "disc-clear-2", "thumbId": "disc-thumb-2", "emptyIconId": "disc-empty-2"}, {"inputId": "id_image_3", "chooseBtnId": "disc-choose-3", "clearBtnId": "disc-clear-3", "thumbId": "disc-thumb-3", "emptyIconId": "disc-empty-3"}, {"inputId": "id_image_4", "chooseBtnId": "disc-choose-4", "clearBtnId": "disc-clear-4", "thumbId": "disc-thumb-4", "emptyIconId": "disc-empty-4"}, {"inputId": "id_image_5", "chooseBtnId": "disc-choose-5", "clearBtnId": "disc-clear-5", "thumbId": "disc-thumb-5", "emptyIconId": "disc-empty-5"}]}</script>
+<script src="{% static 'js/discrepancy_phone_capture.js' %}" defer></script>
+{% endblock %}

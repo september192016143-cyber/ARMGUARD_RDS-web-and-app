@@ -1,0 +1,173 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>ARMGUARD � Camera Upload</title>
+  <!-- HMAC rotating API key (5-minute window). JS reads this; refreshed via AJAX when expired. -->
+  <meta name="x-camera-key"          content="{{ current_api_key }}">
+  <meta name="x-camera-key-expires"  content="{{ key_expires_ms }}">
+  <!-- Activate URL stored in localStorage so the session can be silently
+       re-established when it expires, without requiring a QR re-scan. -->
+  <meta name="x-camera-reactivate"   content="{{ reactivate_url }}">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 1rem;
+      padding: 2rem 1.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    h1 { font-size: 1.2rem; font-weight: 700; margin-bottom: .25rem; color: #f8fafc; }
+    p.sub { font-size: .8rem; color: #94a3b8; margin-bottom: 1.5rem; }
+    label.drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      border: 2px dashed #334155;
+      border-radius: .75rem;
+      padding: 2rem 1rem;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    label.drop-zone:hover, label.drop-zone.dragover { border-color: #f97316; background: #1a2744; }
+    label.drop-zone span { font-size: .85rem; color: #94a3b8; text-align: center; }
+    label.drop-zone strong { font-size: 1rem; color: #f8fafc; }
+    #preview-wrap { margin-top: 1rem; display: none; }
+    #preview { width: 100%; border-radius: .5rem; max-height: 280px; object-fit: contain; }
+    input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .btn {
+      display: block; width: 100%; margin-top: 1.2rem;
+      background: #f97316; color: #fff; border: none; border-radius: .6rem;
+      padding: .8rem; font-size: 1rem; font-weight: 600; cursor: pointer;
+      transition: background .2s;
+    }
+    .btn:hover { background: #ea6f10; }
+    .btn:disabled { background: #475569; cursor: not-allowed; }
+    #status {
+      margin-top: 1rem; font-size: .85rem; text-align: center;
+      min-height: 1.4rem;
+    }
+    #status.ok  { color: #4ade80; }
+    #status.err { color: #f87171; }
+    .thumb-list { margin-top: 1.2rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+    .thumb-list img { width: 70px; height: 70px; object-fit: cover; border-radius: .4rem; border: 2px solid #334155; }
+    .device-badge { font-size: .72rem; color: #64748b; margin-bottom: 1rem; text-align: center; }
+    .device-badge span { color: #4ade80; font-weight: 600; }
+    .key-bar { font-size: .65rem; color: #475569; text-align: center; margin-top: .5rem; }
+
+    /* PIN gate overlay */
+    #pin-gate {
+      position: fixed; inset: 0; background: #0f172a;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem; z-index: 100;
+    }
+    #pin-gate.hidden { display: none; }
+    .pin-card {
+      background: #1e293b; border-radius: 1rem; padding: 2rem 1.5rem;
+      width: 100%; max-width: 360px; text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .pin-card h2 { font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: .4rem; }
+    .pin-card p  { font-size: .82rem; color: #94a3b8; margin-bottom: 1.5rem; }
+    #pin-input {
+      width: 100%; text-align: center; letter-spacing: .4rem;
+      font-size: 2rem; font-weight: 700; color: #f8fafc;
+      background: #0f172a; border: 2px solid #334155; border-radius: .6rem;
+      padding: .6rem; margin-bottom: 1rem; outline: none;
+    }
+    #pin-input:focus { border-color: #f97316; }
+    #pin-input::placeholder { letter-spacing: 0; font-size: 1rem; color: #475569; font-weight: 400; }
+    #pin-err  { min-height: 1.2rem; font-size: .82rem; color: #f87171; margin-bottom: .8rem; }
+    #pin-submit {
+      display: block; width: 100%;
+      background: #f97316; color: #fff; border: none; border-radius: .6rem;
+      padding: .75rem; font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    #pin-submit:disabled { background: #475569; cursor: not-allowed; }
+    .pin-note { font-size: .68rem; color: #475569; margin-top: .75rem; }
+  </style>
+</head>
+<body>
+
+<!-- -- PIN gate ------------------------------------------------------- -->
+<div id="pin-gate" class="{% if pin_verified %}hidden{% endif %}">
+  <div class="pin-card">
+    <h2>&#128274; Enter Session PIN</h2>
+    <p>Check the ARMGUARD pair page on the admin's screen for the current 6-digit PIN.
+It changes every 30 seconds.</p>
+    <input id="pin-input" type="tel" inputmode="numeric" maxlength="6"
+           pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="������">
+    <div id="pin-err"></div>
+    <button id="pin-submit" disabled>Verify PIN</button>
+    <p class="pin-note">This PIN is required once per session.</p>
+  </div>
+</div>
+
+<div class="card" id="upload-card">
+  <h1>&#128247; ARMGUARD Camera Upload</h1>
+  <p class="sub">Take or choose a photo � it will be saved to the armory server.</p>
+
+  <div class="device-badge">
+    Device: <span>{{ device.device_name|default:"unnamed" }}</span>
+    &bull; {{ device.user.username }}
+    <div class="key-bar" id="key-timer">Key valid for <span id="key-countdown">--</span>s</div>
+  </div>
+
+  <!-- Standby state � shown until the armory desk sends a capture request -->
+  <div id="standby-state" style="text-align:center;padding:2rem 0 1.25rem;">
+    <div style="font-size:2.5rem;margin-bottom:.75rem;">&#128274;</div>
+    <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-bottom:.4rem;">Standby</div>
+    <div style="font-size:.82rem;color:#94a3b8;line-height:1.6;">
+      No active request from the armory desk.<br>
+      A capture prompt will appear when a photo is needed.
+    </div>
+    <div style="margin-top:1rem;font-size:.72rem;color:#475569;">&#9679; polling for requests&hellip;</div>
+  </div>
+</div>
+
+{# Hidden form � keeps CSRF token in DOM for AJAX requests #}
+<form id="csrf-form" style="display:none">{% csrf_token %}</form>
+
+<!-- -- Serial capture task overlay ---------------------------------------- -->
+<div id="serial-task-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:1.5rem;">
+  <div style="background:#1e293b;border-radius:1rem;padding:2rem 1.5rem;width:100%;max-width:400px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.5);">
+    <div style="font-size:2rem;margin-bottom:.75rem;">&#128247;</div>
+    <h2 style="font-size:1.1rem;font-weight:700;color:#f8fafc;margin-bottom:.4rem;">&#128338; Serial Image Needed</h2>
+    <p style="font-size:.82rem;color:#94a3b8;margin-bottom:1.25rem;">Tap the button below, photograph the serial number stencil &#8212; it sends automatically.</p>
+    <label style="display:flex;align-items:center;justify-content:center;gap:.6rem;background:#f97316;border-radius:.75rem;padding:1rem 1.5rem;cursor:pointer;position:relative;">
+      <span style="font-size:1.4rem;">&#128247;</span>
+      <strong style="color:#fff;font-size:1rem;">Take Photo</strong>
+      <input type="file" id="serial-capture-input" accept="image/*" capture="environment" style="position:absolute;inset:0;opacity:0;cursor:pointer;">
+    </label>
+    <div id="serial-preview-wrap" style="display:none;margin-top:1rem;">
+      <img id="serial-preview" src="" alt="preview" style="width:100%;border-radius:.5rem;max-height:220px;object-fit:contain;">
+    </div>
+    <button id="serial-send-btn" class="btn" style="margin-top:.75rem;background:#22c55e;display:none;">Retry Send</button>
+    <div id="serial-status" style="margin-top:.75rem;font-size:.85rem;min-height:1.2rem;font-weight:600;"></div>
+    <button id="serial-cancel-btn" style="background:none;border:none;color:#64748b;font-size:.8rem;margin-top:.75rem;cursor:pointer;text-decoration:underline;">Cancel</button>
+  </div>
+</div>
+
+{# Page data for camera_upload.js � type=application/json is not executed by the browser (CSP-safe) #}
+<script type="application/json" id="camera-upload-data">{"keyRefreshUrl":"{% url 'camera:key_refresh' %}","pinApiUrl":"{% url 'camera:pin_api' %}","uploadUrl":"{% url 'camera:upload_image' %}","taskApiUrl":"{% url 'camera:task_api' %}"}</script>
+<script src="{% static 'js/camera_upload.js' %}"></script>
+</body>
+</html>

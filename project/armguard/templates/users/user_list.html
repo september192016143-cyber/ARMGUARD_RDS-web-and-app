@@ -1,0 +1,233 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}User Management — ARMGUARD{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block page_sub %}System accounts and roles{% endblock %}
+
+{% block topbar_actions %}
+{% if can_add %}
+<a href="{% url 'user-add' %}" class="topbar-icon-btn" style="text-decoration:none;padding:0 1rem;height:40px;font-size:.82rem;font-weight:600;gap:.4rem;width:auto">
+  <i class="fa-solid fa-user-plus"></i> Add User
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title"><i class="fa-solid fa-users"></i> All Users</span>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Full Name</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>2FA</th>
+        <th>Staff</th>
+        <th>Active</th>
+        <th>Last Login</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td><strong>{{ u.username }}</strong></td>
+        <td>{{ u.get_full_name|default:"—" }}</td>
+        <td>{{ u.email|default:"—" }}</td>
+        <td>
+          {% if u.is_superuser %}
+            <span class="badge badge-red">Superuser</span>
+          {% else %}
+            {% with role=u.profile.role %}
+              {% if role == 'System Administrator' %}
+                <span class="badge badge-red">{{ role }}</span>
+              {% elif role == 'Administrator — View Only' or role == 'Administrator — Edit & Add' or role == 'Administrator' %}
+                <span class="badge badge-orange">{{ role }}</span>
+              {% elif role == 'Armorer' %}
+                <span class="badge badge-blue">{{ role }}</span>
+              {% else %}
+                <span class="badge" style="background:var(--surface3)">{{ role }}</span>
+              {% endif %}
+            {% endwith %}
+          {% endif %}
+        </td>        <td style="white-space:nowrap">
+          {% if u.pk in enrolled_2fa_ids %}
+            <span title="2FA enrolled" style="color:#22c55e;font-size:.8rem">
+              <i class="fa-solid fa-shield-check"></i> On
+            </span>
+          {% else %}
+            {% if u.is_superuser or u.profile.require_2fa %}
+              <span title="2FA required but not enrolled" style="color:#f59e0b;font-size:.8rem">
+                <i class="fa-solid fa-shield-exclamation"></i> Required
+              </span>
+            {% else %}
+              <span title="2FA exempt" style="color:var(--muted);font-size:.8rem">
+                <i class="fa-solid fa-shield-slash"></i> Exempt
+              </span>
+            {% endif %}
+          {% endif %}
+          {% if can_edit and not u.is_superuser %}
+          <form method="post" action="{% url 'user-toggle-2fa' u.pk %}" style="display:inline;margin-left:.35rem">
+            {% csrf_token %}
+            {% if u.profile.require_2fa %}
+              <button type="submit" class="btn btn-secondary btn-sm" style="padding:.15rem .45rem;font-size:.72rem" title="Click to exempt this user from 2FA">
+                <i class="fa-solid fa-toggle-on" style="color:#22c55e"></i> Exempt
+              </button>
+            {% else %}
+              <button type="submit" class="btn btn-secondary btn-sm" style="padding:.15rem .45rem;font-size:.72rem" title="Click to require 2FA for this user">
+                <i class="fa-solid fa-toggle-off" style="color:var(--muted)"></i> Require
+              </button>
+            {% endif %}
+          </form>
+          {% endif %}
+        </td>        <td>{% if u.is_staff %}<i class="fa-solid fa-check" style="color:var(--success)"></i>{% else %}—{% endif %}</td>
+        <td>{% if u.is_active %}<i class="fa-solid fa-check" style="color:var(--success)"></i>{% else %}<i class="fa-solid fa-xmark" style="color:var(--danger)"></i>{% endif %}</td>
+        <td style="font-size:.8rem;color:var(--muted)">{{ u.last_login|date:"d M Y H:i"|default:"Never" }}</td>
+        <td>
+          <div class="flex gap-1">
+            {% if not u.is_superuser or request.user.is_superuser %}
+            {% if can_edit %}
+            <a href="{% url 'user-edit' u.pk %}" class="btn btn-secondary btn-sm btn-icon" title="Edit"><i class="fa-solid fa-pen"></i></a>
+            {% endif %}
+            {% if u != request.user %}
+            {% if request.user.is_superuser or request.user.profile.role == 'System Administrator' %}
+            <button type="button" class="btn btn-secondary btn-sm btn-icon" style="color:var(--red)"
+                    data-username="{{ u.username }}" data-delete-url="{% url 'user-delete' u.pk %}"
+                    title="Delete"><i class="fa-solid fa-trash"></i></button>
+            {% endif %}
+            {% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2rem">No users found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="page-link"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if page_obj.number == num %}
+        <a class="page-link active" aria-current="page">{{ num }}</a>
+      {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}" class="page-link">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="page-link"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:380px;padding:1.5rem">
+    <h3 style="margin:0 0 .75rem"><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Delete User</h3>
+    <p id="deleteMsg" style="margin:0 0 1.25rem;color:var(--text-secondary)"></p>
+    <form id="deleteForm" method="post">
+      {% csrf_token %}
+      <div class="flex gap-2">
+        <button type="submit" id="delete-confirm-submit" name="delete" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete</button>
+        <button type="button" class="btn btn-secondary" id="deleteModalCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Storage Status Panel ───────────────────────────────────────────────── -->
+<div class="card" style="margin-top:1.5rem" id="storage-panel">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+    <span class="card-title"><i class="fa-solid fa-hard-drive"></i> Storage Status</span>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button id="storage-cleanup-btn" class="btn btn-sm" style="background:rgba(239,68,68,.15);border:1px solid var(--red,#f87171);color:var(--red,#f87171);font-size:.72rem" title="Delete orphaned personnel media files">
+        <i class="fa-solid fa-broom"></i> Clean Orphans
+      </button>
+      <button id="storage-refresh-btn" class="btn btn-secondary btn-sm btn-icon" title="Refresh">
+        <i class="fa-solid fa-rotate-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Disk usage bar -->
+  <div style="padding:.75rem 1rem .25rem" id="storage-disk-wrap">
+    <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:.4rem">
+      <span>Disk Usage</span>
+      <span id="storage-disk-label">Loading…</span>
+    </div>
+    <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+      <div id="storage-disk-bar" style="height:100%;width:0%;background:var(--primary);border-radius:4px;transition:width .5s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:.3rem">
+      <span id="storage-disk-used">—</span>
+      <span id="storage-disk-free">—</span>
+    </div>
+  </div>
+
+  <!-- Two-column layout: media folders + DB records -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:.75rem 1rem 1rem" id="storage-body">
+
+    <!-- Media folders -->
+    <div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Media Files</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem" id="storage-folders-table">
+        <thead>
+          <tr style="color:var(--muted);font-size:.7rem">
+            <th style="text-align:left;padding:.2rem .3rem">Folder</th>
+            <th style="text-align:right;padding:.2rem .3rem">Files</th>
+            <th style="text-align:right;padding:.2rem .3rem">Size</th>
+          </tr>
+        </thead>
+        <tbody id="storage-folders-body">
+          <tr><td colspan="3" style="color:var(--muted);padding:.5rem .3rem">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- DB records + size -->
+    <div>
+      <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Database</div>
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.6rem">
+        Size: <strong id="storage-db-size" style="color:var(--text)">—</strong>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+        <thead>
+          <tr style="color:var(--muted);font-size:.7rem">
+            <th style="text-align:left;padding:.2rem .3rem">Table</th>
+            <th style="text-align:right;padding:.2rem .3rem">Records</th>
+          </tr>
+        </thead>
+        <tbody id="storage-records-body">
+          <tr><td colspan="2" style="color:var(--muted);padding:.5rem .3rem">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="storage-error" style="display:none;padding:.5rem 1rem;color:var(--danger);font-size:.8rem"></div>
+  <div style="padding:.4rem 1rem .6rem;font-size:.7rem;color:var(--muted)" id="storage-ts"></div>
+
+  <!-- Per-record storage breakdown -->
+  <div style="border-top:1px solid var(--border,rgba(255,255,255,.07));padding:.75rem 1rem 1rem" id="storage-per-record">
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Storage Per Record</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem" id="storage-per-record-grid">
+      <!-- populated by JS -->
+      <div style="color:var(--muted);font-size:.8rem">Loading…</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/user_list.js' %}" defer></script>
+<script src="{% static 'js/storage_panel.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,82 @@
+# ARMGUARD RDS V1 — pinned production dependencies
+# Generated from active venv on 2026-03-09 (Django 6.0.3, Python 3.x)
+# Update with: pip freeze > requirements.txt
+#
+# ── System font dependencies (NOT pip packages) ────────────────────────────
+# Required by: project/utils/personnel_id_card_generator.py
+#
+# fonts-liberation  (Arial-compatible, free)  — installed automatically by update-server.sh
+#   sudo apt install -y fonts-liberation fontconfig
+#
+# Arial Nova  (exact design font, commercial)  — NOT auto-installed
+#   Copy ArialNova.ttf / ArialNovaBd.ttf to: /usr/share/fonts/truetype/arial-nova/
+#   Place files in fonts/arial-nova/ at repo root; update-server.sh will install them.
+#   Falls back to: Liberation Sans → DejaVu Sans if not present.
+# ── Core framework ─────────────────────────────────────────────
+asgiref==3.11.1
+Django==6.0.3
+sqlparse==0.5.5
+tzdata==2025.3
+
+# ── Image / QR / PDF ───────────────────────────────────────────
+pillow==12.1.1
+PyMuPDF==1.27.1     # fitz: used by form_filler.py for PDF template filling
+qrcode==8.2
+# reportlab removed — pdf_filler1.py was deleted in Session 7; form_filler.py
+# uses PyMuPDF (fitz) exclusively. Remove reportlab from venv with:
+#   pip uninstall reportlab
+
+# ── Static file serving ────────────────────────────────────────
+whitenoise==6.12.0           # L6: serve compressed static files from WSGI process
+
+# ── Environment / utilities ────────────────────────────────────
+python-dotenv==1.2.2
+# L1 FIX: colorama removed — unused; no code imports it.
+charset-normalizer==3.4.5
+
+# ── REST API (G12) ────────────────────────────────────────────────────────────
+djangorestframework==3.16.0
+
+# ── OpenAPI schema (T1) ───────────────────────────────────────────────────────
+# Generates /api/v1/schema/ endpoint with machine-readable OpenAPI 3.0 JSON.
+# Install: pip install drf-spectacular
+drf-spectacular>=0.27.0
+
+# ── MFA / TOTP (G15) ──────────────────────────────────────────────────────────
+django-otp==1.7.0
+
+# ── Production WSGI server ────────────────────────────────────────────────────
+gunicorn==22.0.0             # WSGI server for production (systemd + Nginx)
+
+# ── Desktop application ───────────────────────────────────────────────────────
+# Required when running ARMGUARD as a standalone desktop app via desktop_app.py.
+# pywebview: native window backed by Edge WebView2 on Windows 10/11.
+# waitress:  pure-Python WSGI server (replaces runserver in desktop mode).
+pywebview>=5.0
+waitress>=3.0.0
+
+# ── Optional: error tracking (uncomment to enable) ─────────────
+# sentry-sdk==2.x.x         # L5: uncomment + set SENTRY_DSN env var to enable
+
+# ── PostgreSQL driver ───────────────────────────────────────────
+# Required for DB_ENGINE=django.db.backends.postgresql in .env
+psycopg2-binary>=2.9.9
+
+# ── Redis cache backend ─────────────────────────────────────────
+# Required for CACHE_BACKEND=django.core.cache.backends.redis.RedisCache in .env
+redis>=5.0.0
+
+# ── Excel import ───────────────────────────────────────────────
+openpyxl==3.1.5          # Bulk import of personnel and inventory from .xlsx files
+et-xmlfile==2.0.0        # openpyxl dependency
+
+# ── Google Sheets import ────────────────────────────────────────
+gspread>=6.0.0           # Read Google Sheets via service-account credentials
+google-auth>=2.29.0      # OAuth2 / service-account credential support for gspread
+
+# ── HTTP client (sync) ─────────────────────────────────────────
+requests>=2.31.0         # Used by project/armguard/sync_client.py for server API calls
+
+# ── System packages (NOT pip — install via apt on the server) ──
+# avahi-daemon  — mDNS service advertising (sudo apt install avahi-daemon)
+# avahi-utils   — avahi-browse for network discovery (sudo apt install avahi-utils)

@@ -1,0 +1,472 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}New Transaction — ARMGUARD{% endblock %}
+{% block page_title %}New Transaction{% endblock %}
+
+
+
+{% block topbar_actions %}
+<div style="display:flex;align-items:center;gap:.75rem;">
+  <div style="display:flex;flex-direction:column;gap:.25rem">
+    <label for="tb_transaction_type" style="font-size:.68rem;font-weight:700;color:#cbd5e1;letter-spacing:.07em;text-transform:uppercase">Type <span style="color:#ef4444">*</span></label>
+    <select id="tb_transaction_type" name="tb_transaction_type" style="background:#1e293b;border:1.5px solid #475569;color:#f1f5f9;border-radius:.4rem;font-size:.82rem;padding:.35rem .7rem;cursor:pointer;width:auto;outline:none;transition:border-color .15s">
+      <option value="Withdrawal"{% if form.transaction_type.value != 'Return' %} selected{% endif %}>Withdrawal</option>
+      <option value="Return"{% if form.transaction_type.value == 'Return' %} selected{% endif %}>Return</option>
+    </select>
+    {% if form.transaction_type.errors %}<span style="font-size:.62rem;color:#ef4444">{{ form.transaction_type.errors|join:", " }}</span>{% endif %}
+  </div>
+  <div id="issuance-wrapper" style="display:flex;flex-direction:column;gap:.25rem">
+    <label for="tb_issuance_type" style="font-size:.68rem;font-weight:700;color:#cbd5e1;letter-spacing:.07em;text-transform:uppercase">Issuance <span style="color:#ef4444">*</span></label>
+    <select id="tb_issuance_type" name="tb_issuance_type" style="background:#1e293b;border:1.5px solid #475569;color:#f1f5f9;border-radius:.4rem;font-size:.82rem;padding:.35rem .7rem;cursor:pointer;width:auto;min-width:185px;outline:none;transition:border-color .15s">
+      <option value="TR (Temporary Receipt)"{% if form.issuance_type.value != 'PAR (Property Acknowledgement Receipt)' %} selected{% endif %}>TR (Temporary Receipt)</option>
+      <option value="PAR (Property Acknowledgement Receipt)"{% if form.issuance_type.value == 'PAR (Property Acknowledgement Receipt)' %} selected{% endif %}>PAR (Property Ack. Receipt)</option>
+    </select>
+    {% if form.issuance_type.errors %}<span style="font-size:.62rem;color:#ef4444">{{ form.issuance_type.errors|join:", " }}</span>{% endif %}
+  </div>
+  <div id="purpose-wrapper" style="display:flex;flex-direction:column;gap:.25rem">
+    <label for="tb_purpose" style="font-size:.68rem;font-weight:700;color:#cbd5e1;letter-spacing:.07em;text-transform:uppercase">Purpose <span style="color:#ef4444">*</span></label>
+    <div style="display:flex;align-items:center;gap:.5rem;">
+      <select id="tb_purpose" name="purpose" style="background:#1e293b;border:1.5px solid #475569;color:#f1f5f9;border-radius:.4rem;font-size:.82rem;padding:.35rem .7rem;width:auto;outline:none;transition:border-color .15s">
+        {% for p in active_purposes %}
+        <option value="{{ p.name }}"{% if form.purpose.value == p.name %} selected{% endif %}{% if p.hotkey %} data-hotkey="{{ p.hotkey|escapejs }}"{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" id="tb_purpose_other" name="purpose_other" value="{{ form.purpose_other.value|default:'' }}" style="display:none;background:#1e293b;border:1.5px solid #475569;color:#f1f5f9;border-radius:.4rem;font-size:.82rem;padding:.35rem .7rem;min-width:140px;" placeholder="Enter purpose">
+    </div>
+    {% if form.purpose.errors %}<span style="font-size:.62rem;color:#ef4444">{{ form.purpose.errors|join:", " }}</span>{% endif %}
+    {% if form.purpose_other.errors %}<span style="font-size:.62rem;color:#ef4444">{{ form.purpose_other.errors|join:", " }}</span>{% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block topbar_submit %}
+<button type="button" id="btn-tr-preview" class="btn" style="white-space:nowrap;background:#1e3a5f;border:1.5px solid #3b82f6;color:#93c5fd;display:none;">
+  <i class="fa-solid fa-file-lines"></i> TR Preview
+</button>
+<button type="button" id="btn-tr-submit" class="btn btn-success" style="white-space:nowrap;">
+  <i class="fa-solid fa-floppy-disk"></i> Submit
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- TR Notification Toast -->
+<div id="tr-toast" style="position:fixed;top:4.5rem;right:1.25rem;transform:translateY(-120%);z-index:1300;min-width:280px;max-width:380px;padding:.75rem 1rem;border-radius:.6rem;display:flex;align-items:flex-start;gap:.65rem;box-shadow:0 8px 32px rgba(0,0,0,.45);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;">
+  <i id="tr-toast-icon" class="fa-solid fa-circle-exclamation" style="font-size:1rem;flex-shrink:0;margin-top:.1rem;"></i>
+  <span id="tr-toast-msg" style="font-size:.82rem;line-height:1.5;"></span>
+</div>
+<!-- TR Preview Modal -->
+<div id="tr-preview-modal" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.7);align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:.75rem;box-shadow:0 24px 64px rgba(0,0,0,.6);width:min(860px,95vw);height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.7rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-weight:700;font-size:.9rem;color:var(--text);"><i class="fa-solid fa-file-lines" style="color:#93c5fd;margin-right:.5rem;"></i>TR Preview</span>
+      <button type="button" id="btn-tr-preview-close" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;line-height:1;padding:.15rem .4rem;border-radius:.3rem;" title="Close">&times;</button>
+    </div>
+    <!-- PDF rendered here via PDF.js <canvas> elements created by transaction_form.js.
+         PDF.js renders onto <canvas> — no <iframe>, no <embed>, no frame-src/object-src CSP involvement. -->
+    <div id="tr-preview-container" style="flex:1;width:100%;background:#525659;overflow-y:auto;padding:8px;box-sizing:border-box;"></div>
+  </div>
+</div>
+<div style="display:flex;align-items:flex-start;gap:1.25rem;">
+<div style="max-width:860px;flex-shrink:0;">
+<form method="post" enctype="multipart/form-data" id="txn-form" novalidate
+      data-personnel-url="{% url 'transaction-personnel-status' %}"
+      data-item-url="{% url 'transaction-item-status' %}"
+      data-tr-preview-url="{% url 'transaction-tr-preview' %}"
+      data-pdfjs-url="{% static 'js/pdfjs/pdf.min.mjs' %}"
+      data-pdfjs-worker="{% static 'js/pdfjs/pdf.worker.min.mjs' %}"
+      data-purpose-config="{{ purpose_config|escape }}"
+      data-tr-default-hours="{{ tr_default_return_hours|default:24 }}"
+      data-default-issuance="{{ default_issuance_type|default:'TR (Temporary Receipt)'|escape }}"
+      data-has-errors="{% if form.errors %}true{% else %}false{% endif %}">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+  <div id="form-error-toast" style="position:fixed;top:1.25rem;right:1.25rem;z-index:9999;max-width:360px;background:var(--card);border:1.5px solid #ef4444;border-radius:.6rem;box-shadow:0 8px 32px rgba(0,0,0,.45);padding:.85rem 1rem .85rem .9rem;display:flex;gap:.75rem;align-items:flex-start;">
+    <i class="fa-solid fa-circle-exclamation" style="color:#ef4444;font-size:1rem;margin-top:.1rem;flex-shrink:0;"></i>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:.8rem;font-weight:700;color:#ef4444;margin-bottom:.3rem;">Please fix the following errors:</div>
+      <ul style="margin:0;padding-left:1rem;font-size:.78rem;color:var(--text);line-height:1.6;">
+        {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+    <button type="button" id="form-error-dismiss" data-dismiss style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;line-height:1;padding:0;margin-top:.05rem;flex-shrink:0;" aria-label="Dismiss">&times;</button>
+  </div>
+  {# F1 FIX: Auto-dismiss logic moved to transaction_form.js (reads #form-error-toast from DOM). #}
+  {% endif %}
+
+  <!-- transaction_type / issuance_type / purpose are rendered in the topbar; synced via JS on submit -->
+
+  <!-- Hidden QR fields — populated by background scanner listener, processed server-side -->
+  <input type="hidden" name="qr_personnel_id" id="fe_qr_personnel_id">
+  <input type="hidden" name="qr_item_id" id="fe_qr_item_id">
+
+  <div class="card mb-2">
+
+    <!-- Personnel -->
+    <div style="padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <div class="form-group" style="max-width:400px;margin-bottom:0">
+        <label for="id_personnel" class="form-label">Personnel <span class="req">*</span></label>
+        {{ form.personnel }}
+        {% if form.personnel.errors %}<div class="form-error">{{ form.personnel.errors|join:", " }}</div>{% endif %}
+        <div id="personnel-status-banner" style="display:none;margin-top:.45rem;"></div>
+      </div>
+    </div>
+
+    <!-- Weapons + Magazines + Ammunition -->
+    <div style="padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);">
+      {{ form.pistol_magazine.as_hidden }}
+      {{ form.pistol_ammunition.as_hidden }}
+      {{ form.rifle_ammunition.as_hidden }}
+      <div class="form-row">
+        <!-- Left: Pistol + Pistol Magazine Qty + Pistol Ammo -->
+        <div id="pistol-col" style="display:flex;flex-direction:column;gap:.5rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="id_pistol" class="form-label">Pistol</label>
+            {{ form.pistol }}
+            {% if form.pistol.errors %}<div class="form-error">{{ form.pistol.errors|join:", " }}</div>{% endif %}
+            <div id="pistol-status-banner" style="display:none;margin-top:.35rem;"></div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="id_pistol_magazine_quantity" class="form-label">Pistol Magazine Qty</label>
+            {{ form.pistol_magazine_quantity }}
+            {% if form.pistol_magazine_quantity.errors %}<div class="form-error">{{ form.pistol_magazine_quantity.errors|join:", " }}</div>{% endif %}
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="id_pistol_ammunition_quantity" class="form-label">Pistol Ammunition Rounds</label>
+            <div style="display:flex;align-items:center;gap:.6rem;">
+              <div style="width:50%;">
+                {{ form.pistol_ammunition_quantity }}
+                {% if form.pistol_ammunition_quantity.errors %}<div class="form-error">{{ form.pistol_ammunition_quantity.errors|join:", " }}</div>{% endif %}
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <!-- Right: Rifle + Rifle Magazine + Qty + Rifle Ammo -->
+        <div id="rifle-col" style="display:flex;flex-direction:column;gap:.5rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="id_rifle" class="form-label">Rifle</label>
+            {{ form.rifle }}
+            {% if form.rifle.errors %}<div class="form-error">{{ form.rifle.errors|join:", " }}</div>{% endif %}
+            <div id="rifle-status-banner" style="display:none;margin-top:.35rem;"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="id_rifle_magazine" class="form-label">Rifle Magazine</label>
+              {{ form.rifle_magazine }}
+              {% if form.rifle_magazine.errors %}<div class="form-error">{{ form.rifle_magazine.errors|join:", " }}</div>{% endif %}
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label for="id_rifle_magazine_quantity" class="form-label">Qty <span id="rifle-mag-qty-hint" style="font-size:.72rem;font-weight:400;color:var(--muted);"></span></label>
+              {{ form.rifle_magazine_quantity }}
+              {% if form.rifle_magazine_quantity.errors %}<div class="form-error">{{ form.rifle_magazine_quantity.errors|join:", " }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="id_rifle_ammunition_quantity" class="form-label">Rifle Ammunition Rounds</label>
+            <div style="display:flex;align-items:center;gap:.6rem;">
+              <div style="width:50%;">
+                {{ form.rifle_ammunition_quantity }}
+                {% if form.rifle_ammunition_quantity.errors %}<div class="form-error">{{ form.rifle_ammunition_quantity.errors|join:", " }}</div>{% endif %}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accessories -->
+    <div style="padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(2,auto);grid-auto-flow:column;gap:.5rem .75rem;">
+        <label id="pistol-holster-row" style="display:flex;align-items:center;gap:.75rem;cursor:pointer;">
+          {{ form.include_pistol_holster }}
+          <span style="font-size:.8rem;font-weight:500;color:var(--text)">Pistol Holster<span id="holster-qty-label" style="color:var(--muted);font-weight:400;"> &mdash; 1 unit</span></span>
+        </label>
+        <label id="magazine-pouch-row" style="display:flex;align-items:center;gap:.75rem;cursor:pointer;">
+          {{ form.include_magazine_pouch }}
+          <span style="font-size:.8rem;font-weight:500;color:var(--text)">Magazine Pouch<span id="magpouch-qty-label" style="color:var(--muted);font-weight:400;"> &mdash; 3 units</span></span>
+        </label>
+        <label id="rifle-sling-row" style="display:flex;align-items:center;gap:.75rem;cursor:pointer;">
+          {{ form.include_rifle_sling }}
+          <span style="font-size:.8rem;font-weight:500;color:var(--text)">Rifle Sling<span id="riflesling-qty-label" style="color:var(--muted);font-weight:400;"> &mdash; 1 unit</span></span>
+        </label>
+        <label id="bandoleer-row" style="display:flex;align-items:center;gap:.75rem;cursor:pointer;">
+          {{ form.include_bandoleer }}
+          <span style="font-size:.8rem;font-weight:500;color:var(--text)">Bandoleer<span id="bandoleer-qty-label" style="color:var(--muted);font-weight:400;"> &mdash; 1 unit</span></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Return By (shown only for TR withdrawals) -->
+    <div id="return-by-section" style="display:none;padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <div class="form-group" style="margin-bottom:0">
+        <label for="id_return_by" class="form-label">Return Deadline <span class="req" id="return-by-req">*</span></label>
+        {{ form.return_by }}
+        <div class="form-hint">Date and time when the firearm(s) must be returned. Required for TR withdrawals.</div>
+        {% if form.return_by.errors %}<div class="form-error">{{ form.return_by.errors|join:", " }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- PAR Document (shown when PAR issuance) -->
+    <div id="par-doc-section" style="display:none;padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <div class="form-group" style="margin-bottom:0">
+        <label for="id_par_document" class="form-label">Upload PAR PDF <span class="req">*</span></label>
+        {{ form.par_document }}
+        <div class="form-hint">Required when Issuance Type is PAR. PDF files only.</div>
+        {% if form.par_document.errors %}<div class="form-error">{{ form.par_document.errors|join:", " }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div>
+      <div class="form-group" style="margin-bottom:0;position:relative;">
+        {{ form.notes }}
+        <span id="notes-placeholder" style="position:absolute;top:.6rem;left:.75rem;font-size:.8rem;font-weight:500;color:#475569;pointer-events:none;transition:opacity .2s;letter-spacing:.04em;text-transform:uppercase;">Remarks</span>
+        {% if form.notes.errors %}<div class="form-error">{{ form.notes.errors|join:", " }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Discrepancy report (Return mode only) ──────────────────────────── -->
+    <div id="discrepancy-section" style="display:none;padding-top:.75rem;margin-top:.75rem;border-top:1px solid var(--border);">
+      <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer;margin-bottom:0;user-select:none;">
+        <input type="checkbox" id="cb_report_discrepancy" name="report_discrepancy"
+               style="width:15px;height:15px;flex-shrink:0;accent-color:#ef4444;cursor:pointer;">
+        <span style="font-size:.82rem;font-weight:600;color:#fca5a5;">
+          <i class="fa-solid fa-triangle-exclamation" style="margin-right:.4rem;font-size:.75rem;"></i>Report Firearm Discrepancy
+        </span>
+      </label>
+      <div id="discrepancy-fields" style="display:none;flex-direction:column;gap:.65rem;margin-top:.75rem;">
+        <div class="form-group" style="margin-bottom:0;max-width:320px;">
+          <label class="form-label" for="dis_type">Discrepancy Type <span class="req">*</span></label>
+          <select id="dis_type" name="discrepancy_type" class="form-control">
+            <option value="">----------</option>
+            <option value="Missing">Missing</option>
+            <option value="Damaged">Damaged</option>
+            <option value="Wrong Serial">Wrong Serial</option>
+            <option value="Condition Mismatch">Condition Mismatch</option>
+            <option value="Incomplete Accessories">Incomplete Accessories</option>
+            <option value="Others">Others</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="dis_desc">Description <span class="req">*</span></label>
+          <textarea id="dis_desc" name="discrepancy_description" rows="3" class="form-control"
+                    style="resize:vertical;color:#fff;"
+                    placeholder="Describe the discrepancy…"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Photo Evidence <span style="color:var(--muted);font-size:.72rem">(optional, up to 5)</span></label>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+            <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-phone-btn">
+              <i class="fa-solid fa-mobile-screen-button"></i> Via Phone
+            </button>
+          </div>
+          <!-- 5-slot image grid -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:.5rem;align-items:start;">
+
+            <!-- Slot 1 -->
+            <div style="border:2px dashed var(--border);border-radius:.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.35rem;min-width:0;min-height:70px;justify-content:center;">
+              <img id="txn-disc-thumb-1" src="" alt="" style="width:100%;border-radius:.3rem;object-fit:contain;display:none">
+              <span id="txn-disc-empty-1" style="color:var(--muted);font-size:1.75rem;line-height:1">+</span>
+              <div style="display:flex;gap:.25rem;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-choose-1" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+                <button type="button" class="btn btn-danger btn-sm" id="txn-disc-clear-1" title="Remove" style="font-size:.65rem;padding:.2rem .45rem;display:none"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- Slot 2 -->
+            <div style="border:2px dashed var(--border);border-radius:.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.35rem;min-width:0;min-height:70px;justify-content:center;">
+              <img id="txn-disc-thumb-2" src="" alt="" style="width:100%;border-radius:.3rem;object-fit:contain;display:none">
+              <span id="txn-disc-empty-2" style="color:var(--muted);font-size:1.75rem;line-height:1">+</span>
+              <div style="display:flex;gap:.25rem;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-choose-2" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+                <button type="button" class="btn btn-danger btn-sm" id="txn-disc-clear-2" title="Remove" style="font-size:.65rem;padding:.2rem .45rem;display:none"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- Slot 3 -->
+            <div style="border:2px dashed var(--border);border-radius:.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.35rem;min-width:0;min-height:70px;justify-content:center;">
+              <img id="txn-disc-thumb-3" src="" alt="" style="width:100%;border-radius:.3rem;object-fit:contain;display:none">
+              <span id="txn-disc-empty-3" style="color:var(--muted);font-size:1.75rem;line-height:1">+</span>
+              <div style="display:flex;gap:.25rem;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-choose-3" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+                <button type="button" class="btn btn-danger btn-sm" id="txn-disc-clear-3" title="Remove" style="font-size:.65rem;padding:.2rem .45rem;display:none"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- Slot 4 -->
+            <div style="border:2px dashed var(--border);border-radius:.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.35rem;min-width:0;min-height:70px;justify-content:center;">
+              <img id="txn-disc-thumb-4" src="" alt="" style="width:100%;border-radius:.3rem;object-fit:contain;display:none">
+              <span id="txn-disc-empty-4" style="color:var(--muted);font-size:1.75rem;line-height:1">+</span>
+              <div style="display:flex;gap:.25rem;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-choose-4" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+                <button type="button" class="btn btn-danger btn-sm" id="txn-disc-clear-4" title="Remove" style="font-size:.65rem;padding:.2rem .45rem;display:none"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+            <!-- Slot 5 -->
+            <div style="border:2px dashed var(--border);border-radius:.5rem;display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.35rem;min-width:0;min-height:70px;justify-content:center;">
+              <img id="txn-disc-thumb-5" src="" alt="" style="width:100%;border-radius:.3rem;object-fit:contain;display:none">
+              <span id="txn-disc-empty-5" style="color:var(--muted);font-size:1.75rem;line-height:1">+</span>
+              <div style="display:flex;gap:.25rem;justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" id="txn-disc-choose-5" title="Choose file" style="font-size:.65rem;padding:.2rem .45rem"><i class="fa-solid fa-folder-open"></i></button>
+                <button type="button" class="btn btn-danger btn-sm" id="txn-disc-clear-5" title="Remove" style="font-size:.65rem;padding:.2rem .45rem;display:none"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+
+          </div><!-- /5-slot grid -->
+
+          <!-- Hidden file inputs -->
+          <input type="file" id="dis_image"   name="discrepancy_image"   accept="image/*" style="display:none">
+          <input type="file" id="dis_image_2" name="discrepancy_image_2" accept="image/*" style="display:none">
+          <input type="file" id="dis_image_3" name="discrepancy_image_3" accept="image/*" style="display:none">
+          <input type="file" id="dis_image_4" name="discrepancy_image_4" accept="image/*" style="display:none">
+          <input type="file" id="dis_image_5" name="discrepancy_image_5" accept="image/*" style="display:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- Missing accessory discrepancy (Return mode only) ─────────────────── -->
+    <!-- Each row is hidden by default; transaction_form.js shows/hides based on  -->
+    <!-- which consumable items are currently outstanding for the selected personnel. -->
+    <div id="acc-discrepancy-section" style="display:none;padding-top:.75rem;margin-top:.75rem;border-top:1px solid var(--border);">
+      <div style="font-size:.82rem;font-weight:600;color:#fca5a5;margin-bottom:.5rem;">
+        <i class="fa-solid fa-triangle-exclamation" style="margin-right:.4rem;font-size:.75rem;"></i>
+        Report Missing Accessories / Consumables
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.65rem;line-height:1.4;">
+        Check the box next to any issued item that <strong>cannot be physically returned</strong>
+        (lost, stolen, or damaged beyond use). A discrepancy record will be opened for each
+        flagged item and the transaction log will be closed with a discrepancy notation.
+      </div>
+      <div id="acc-disc-rows" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.65rem;">
+        <!-- Pistol accessories -->
+        <div id="disc-row-pistol_magazine"   class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_pistol_magazine"   value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Pistol Magazine — <span id="disc-label-pistol_magazine"   style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <div id="disc-row-pistol_ammunition" class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_pistol_ammunition" value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Pistol Ammunition — <span id="disc-label-pistol_ammunition" style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <div id="disc-row-pistol_holster"    class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_pistol_holster"    value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Pistol Holster</span>
+          </label>
+        </div>
+        <div id="disc-row-magazine_pouch"    class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_magazine_pouch"    value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Magazine Pouch — <span id="disc-label-magazine_pouch"    style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <!-- Rifle accessories -->
+        <div id="disc-row-rifle_magazine"    class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_rifle_magazine"    value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Rifle Magazine — <span id="disc-label-rifle_magazine"    style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <div id="disc-row-rifle_ammunition"  class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_rifle_ammunition"  value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Rifle Ammunition — <span id="disc-label-rifle_ammunition"  style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <div id="disc-row-rifle_sling"       class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_rifle_sling"       value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Rifle Sling — <span id="disc-label-rifle_sling"       style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+        <div id="disc-row-bandoleer"         class="acc-disc-row" style="display:none;">
+          <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;">
+            <input type="checkbox" name="disc_bandoleer"         value="1" style="width:14px;height:14px;accent-color:#ef4444;">
+            <span style="font-size:.8rem;">Bandoleer — <span id="disc-label-bandoleer"         style="color:#fca5a5;"></span></span>
+          </label>
+        </div>
+      </div>
+      <!-- Single description for all missing accessory discrepancies -->
+      <div id="acc-disc-desc-row" style="display:none;flex-direction:column;gap:.35rem;">
+        <label class="form-label" style="font-size:.78rem;" for="acc_disc_desc">
+          Missing Item Description <span class="req">*</span>
+        </label>
+        <textarea id="acc_disc_desc" name="acc_discrepancy_description" rows="2"
+                  class="form-control" style="resize:vertical;color:#fff;font-size:.8rem;"
+                  placeholder="Briefly describe what happened to the missing item(s)…"></textarea>
+      </div>
+    </div>
+
+  </div>
+
+
+</form>
+</div><!-- /form area -->
+
+<!-- ── Transaction sidebar: ID card + item images ── -->
+<div id="txn-sidebar" style="flex-shrink:0;display:flex;flex-direction:row;align-items:flex-start;gap:.75rem;padding-top:.25rem;">
+
+  <!-- Personnel ID card (front) -->
+  <div id="sidebar-personnel" style="display:none;flex-direction:column;gap:.3rem;">
+    <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">ID Card</div>
+    <img id="sidebar-id-card-img" src="" alt="ID Card Front"
+      style="width:200px;border-radius:.45rem;border:1px solid var(--border);background:var(--card);display:block;object-fit:cover;">
+  </div>
+
+  <!-- Weapon images column -->
+  <div id="sidebar-items" style="display:flex;flex-direction:column;gap:.65rem;">
+
+    <!-- Pistol -->
+    <div id="sidebar-pistol" style="display:none;flex-direction:column;gap:.3rem;">
+      <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Pistol</div>
+      <img id="sidebar-pistol-tag-img" src="" alt="Item Tag"
+        style="width:160px;border-radius:.35rem;border:1px solid var(--border);background:var(--card);display:block;object-fit:contain;">
+      <img id="sidebar-pistol-serial-img" src="" alt="Serial Image"
+        style="width:160px;border-radius:.35rem;border:1px solid var(--border);background:var(--card);display:block;object-fit:contain;margin-top:.3rem;">
+    </div>
+
+    <!-- Rifle -->
+    <div id="sidebar-rifle" style="display:none;flex-direction:column;gap:.3rem;">
+      <div style="font-size:.62rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Rifle</div>
+      <img id="sidebar-rifle-tag-img" src="" alt="Item Tag"
+        style="width:160px;border-radius:.35rem;border:1px solid var(--border);background:var(--card);display:block;object-fit:contain;">
+      <img id="sidebar-rifle-serial-img" src="" alt="Serial Image"
+        style="width:160px;border-radius:.35rem;border:1px solid var(--border);background:var(--card);display:block;object-fit:contain;margin-top:.3rem;">
+    </div>
+
+  </div><!-- /sidebar-items -->
+</div><!-- /txn-sidebar -->
+
+</div><!-- /flex wrapper -->
+
+<!-- Phone capture overlay — kept inside #main-content so PJAX re-injects it on every navigation -->
+<div id="txn-disc-phone-overlay"
+     style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:.75rem"
+     aria-modal="true" role="dialog">
+  <div style="background:var(--card,#1e2535);border:1px solid var(--border,#2d3550);border-radius:.75rem;padding:1.5rem;width:min(380px,96vw);display:flex;flex-direction:column;align-items:center;gap:1rem">
+    <div style="width:100%;display:flex;justify-content:space-between;align-items:center">
+      <h3 style="margin:0;font-size:1rem;font-weight:600"><i class="fa-solid fa-mobile-screen-button"></i> Capture via Phone</h3>
+      <button type="button" id="txn-disc-phone-close" style="background:none;border:none;color:var(--muted,#6b7897);font-size:1.4rem;cursor:pointer;padding:.25rem;line-height:1">&times;</button>
+    </div>
+    <p style="margin:0;font-size:.8rem;color:var(--muted,#6b7897);text-align:center">Scan the QR code with the phone camera &rarr; take photo &rarr; form updates automatically.</p>
+    <img id="txn-disc-phone-qr" src="" alt="QR Code" style="display:none;width:200px;height:200px;border-radius:.5rem;border:3px solid var(--border,#2d3550)">
+    <div id="txn-disc-phone-status" style="font-size:.85rem;color:var(--muted,#6b7897);text-align:center">Generating QR code&hellip;</div>
+    <a id="txn-disc-phone-link" href="#" target="_blank" rel="noopener noreferrer"
+       style="display:none;font-size:.75rem;color:var(--primary,#c9952b);word-break:break-all;text-align:center">Or open this link on your phone &rarr;</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/transaction_form.js' %}" defer></script>
+<script type="application/json" id="disc-capture-config">{"initUrl": "{% url 'serial-capture-init' %}", "phoneBtnId": "txn-disc-phone-btn", "overlayId": "txn-disc-phone-overlay", "closeBtnId": "txn-disc-phone-close", "qrImgId": "txn-disc-phone-qr", "statusElId": "txn-disc-phone-status", "linkElId": "txn-disc-phone-link", "slots": [{"inputId": "dis_image", "chooseBtnId": "txn-disc-choose-1", "clearBtnId": "txn-disc-clear-1", "thumbId": "txn-disc-thumb-1", "emptyIconId": "txn-disc-empty-1"}, {"inputId": "dis_image_2", "chooseBtnId": "txn-disc-choose-2", "clearBtnId": "txn-disc-clear-2", "thumbId": "txn-disc-thumb-2", "emptyIconId": "txn-disc-empty-2"}, {"inputId": "dis_image_3", "chooseBtnId": "txn-disc-choose-3", "clearBtnId": "txn-disc-clear-3", "thumbId": "txn-disc-thumb-3", "emptyIconId": "txn-disc-empty-3"}, {"inputId": "dis_image_4", "chooseBtnId": "txn-disc-choose-4", "clearBtnId": "txn-disc-clear-4", "thumbId": "txn-disc-thumb-4", "emptyIconId": "txn-disc-empty-4"}, {"inputId": "dis_image_5", "chooseBtnId": "txn-disc-choose-5", "clearBtnId": "txn-disc-clear-5", "thumbId": "txn-disc-thumb-5", "emptyIconId": "txn-disc-empty-5"}]}</script>
+<script src="{% static 'js/discrepancy_phone_capture.js' %}" defer></script>
+{% endblock %}

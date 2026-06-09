@@ -1,0 +1,125 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Temporary Receipt — ARMGUARD{% endblock %}
+{% block page_title %}Temporary Receipt{% endblock %}
+{% block page_sub %}Temporary Receipt reprint queue{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'print_handler:print_id_cards' %}" class="btn btn-secondary btn-sm">
+  <i class="fa-solid fa-id-card"></i> ID Cards
+</a>
+
+<div style="position:relative" id="cal-wrap">
+  <button id="calendar-toggle" class="topbar-icon-btn" title="Date Filter">
+    <i class="fa-solid fa-calendar-days" style="font-size:1rem"></i>
+  </button>
+
+  <!-- Calendar Dropdown -->
+  <div id="calendar-dropdown" style="display:none;position:absolute;top:calc(100% + 10px);right:0;z-index:400;background:var(--card);border:1px solid var(--border);border-radius:.5rem;box-shadow:0 12px 40px rgba(0,0,0,.6);width:300px;overflow:hidden;font-family:inherit">
+
+    <!-- Selected range display -->
+    <div id="cal-range-bar" style="padding:.6rem 1rem;border-bottom:1px solid var(--border);font-size:.72rem;color:var(--primary);min-height:2rem;display:flex;align-items:center;gap:.4rem">
+      <i class="fa-solid fa-calendar-days" style="opacity:.6"></i>
+      <span id="cal-range-txt">Select start date</span>
+    </div>
+
+    <!-- Month navigation -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--border)">
+      <button id="cal-prev" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:.2rem .5rem;border-radius:.25rem;transition:color .15s">&#8249;</button>
+      <span id="cal-month-label" style="font-size:.82rem;font-weight:600;color:var(--text)"></span>
+      <button id="cal-next" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:.2rem .5rem;border-radius:.25rem;transition:color .15s">&#8250;</button>
+    </div>
+
+    <!-- Day-of-week headers -->
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);padding:.4rem .75rem 0;gap:2px">
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Su</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Mo</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Tu</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">We</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Th</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Fr</div>
+      <div style="text-align:center;font-size:.62rem;font-weight:600;color:var(--muted);padding:.2rem 0">Sa</div>
+    </div>
+
+    <!-- Day grid -->
+    <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);padding:.25rem .75rem .5rem;gap:2px"></div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:.5rem;padding:.6rem 1rem;border-top:1px solid var(--border)">
+      <button id="cal-apply" class="btn btn-primary btn-sm" style="flex:1">Apply</button>
+      <button id="cal-clear" class="btn btn-secondary btn-sm" style="flex:1">Clear</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.cal-day{text-align:center;font-size:.75rem;padding:.3rem 0;border-radius:.3rem;cursor:pointer;color:var(--text);transition:all .12s;user-select:none}
+.cal-day:hover:not(.cal-empty){background:rgba(245,158,11,.2);color:var(--primary)}
+.cal-day.cal-today{color:var(--primary);font-weight:700}
+.cal-day.cal-start,.cal-day.cal-end{background:var(--primary)!important;color:#fff!important;font-weight:700;border-radius:.3rem}
+.cal-day.cal-in-range{background:rgba(245,158,11,.15);color:var(--text);border-radius:0}
+.cal-day.cal-start{border-radius:.3rem 0 0 .3rem}
+.cal-day.cal-end{border-radius:0 .3rem .3rem 0}
+.cal-day.cal-start.cal-end{border-radius:.3rem}
+.cal-day.cal-other-month{opacity:.3}
+.cal-empty{cursor:default}
+#cal-prev:hover,#cal-next:hover{color:var(--primary)!important}
+</style>
+{% endblock %}
+
+{% block content %}
+<style>
+.main{height:100vh;min-height:unset;overflow:hidden}
+.page-body{display:flex;flex-direction:column;overflow:hidden;padding-bottom:.75rem}
+.page-body>.card{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.page-body>.card>.filter-bar{flex-shrink:0}
+.page-body>.card>.table-wrap{flex:1;overflow-y:auto;min-height:0}
+.page-body>.card table tbody td{padding:.45rem .85rem}
+.page-body>.card table thead th{padding:.45rem .85rem}
+</style>
+<div class="card">
+
+  <!-- ── Filter bar ─────────────────────────────────────────────────────── -->
+  <div class="filter-bar">
+    <form id="reprint-tr-form" method="get" class="search-bar" style="flex:1;flex-wrap:wrap" data-url="{% url 'print_handler:reprint_tr' %}">
+      <div class="input-wrap" style="flex:1;max-width:320px;position:relative">
+        <i class="fa-solid fa-magnifying-glass"
+           style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none"></i>
+        <input id="reprint-tr-q" type="text" name="q" value="{{ q }}" class="form-control"
+               placeholder="Search name, AFSN, transaction ID…"
+               style="padding-left:2.1rem" autocomplete="off">
+      </div>
+
+      <select id="reprint-tr-type" name="txn_type" class="form-control" style="max-width:150px">
+        <option value="">All Withdrawals</option>
+        <option value="Withdrawal" selected>Withdrawal</option>
+      </select>
+
+      <select id="reprint-tr-range" name="range" class="form-control" style="max-width:140px">
+        <option value="">All Time</option>
+        <option value="day"   {% if selected_range == 'day'   %}selected{% endif %}>Today</option>
+        <option value="week"  {% if selected_range == 'week'  %}selected{% endif %}>This Week</option>
+        <option value="month" {% if selected_range == 'month' %}selected{% endif %}>This Month</option>
+      </select>
+
+      {% if q or selected_type or selected_range %}
+      <a href="{% url 'print_handler:reprint_tr' %}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-xmark"></i> Clear
+      </a>
+      {% endif %}
+    </form>
+    <span id="reprint-tr-count" class="text-muted" style="font-size:.75rem;white-space:nowrap">{{ total }} record{{ total|pluralize }}</span>
+  </div>
+
+  <!-- ── Table ─────────────────────────────────────────────────────────── -->
+  <div id="reprint-tr-results" class="table-wrap">
+    {% include 'print/reprint_tr_rows.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/reprint_tr.js' %}"></script>
+<script src="{% static 'js/calendar_widget.js' %}" defer></script>
+{% endblock %}

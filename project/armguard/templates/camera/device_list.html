@@ -1,0 +1,142 @@
+﻿{% extends "base.html" %}
+{% load static %}
+{% block title %}Camera Devices — ARMGUARD{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+  <h1 class="page-title">&#128247; Camera Devices</h1>
+  <span style="font-size:.8rem;color:var(--text-muted,#94a3b8);display:flex;align-items:center;gap:.5rem;">
+    System Administrator only &mdash; {{ devices|length }} device{{ devices|length|pluralize }}
+    <span id="cam-live" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;opacity:.4;transition:opacity .3s;" title="Live updates active"></span>
+  </span>
+</div>
+
+{% if not devices %}
+  <div style="background:var(--surface,#1e293b);border-radius:.75rem;padding:2rem;text-align:center;color:#64748b;">
+    No camera devices registered yet.
+    Pair a device by visiting a user's profile or navigating to
+    <code>/camera/admin/pair/&lt;user_pk&gt;/</code>.
+  </div>
+{% else %}
+<div style="overflow-x:auto;">
+<table class="cam-table" style="width:100%;border-collapse:collapse;font-size:.85rem;">
+  <thead>
+    <tr style="border-bottom:1px solid #334155;color:#64748b;text-align:left;">
+      <th style="padding:.6rem .75rem;">User</th>
+      <th style="padding:.6rem .75rem;">Label</th>
+      <th style="padding:.6rem .75rem;">Status</th>
+      <th style="padding:.6rem .75rem;">Activated</th>
+      <th style="padding:.6rem .75rem;">Last Seen</th>
+      <th style="padding:.6rem .75rem;">Failed</th>
+      <th style="padding:.6rem .75rem;">Actions</th>
+    </tr>
+  </thead>
+  <tbody id="devices-table-body">
+  {% for dev in devices %}
+    <tr data-dev-pk="{{ dev.pk }}" style="border-bottom:1px solid #1e293b;">
+      <td style="padding:.6rem .75rem;color:var(--text,#f8fafc);font-weight:600;">
+        {{ dev.user.username }}
+        {% if dev.user.get_full_name %}
+          <br><small style="color:#64748b;font-weight:400;">{{ dev.user.get_full_name }}</small>
+        {% endif %}
+      </td>
+      <td style="padding:.6rem .75rem;color:#94a3b8;">{{ dev.device_name|default:"—" }}</td>
+      <td style="padding:.6rem .75rem;" data-cell="status">
+        {% if dev.revoked_at %}
+          <span style="color:#f87171;">&#9632; Revoked</span>
+        {% elif dev.is_active %}
+          <span style="color:#4ade80;">&#9679; Active</span>
+          {% if dev.is_locked %}<br><span style="color:#fbbf24;font-size:.75rem;">&#128274; Locked until {{ dev.locked_until|date:"H:i" }}</span>{% endif %}
+        {% else %}
+          <span style="color:#fbbf24;">&#9203; Pending</span>
+        {% endif %}
+      </td>
+      <td style="padding:.6rem .75rem;color:#94a3b8;">
+        {% if dev.activated_at %}{{ dev.activated_at|date:"d M Y" }}<br><small>{{ dev.activated_at|date:"H:i" }}</small>
+        {% else %}&mdash;{% endif %}
+      </td>
+      <td style="padding:.6rem .75rem;color:#94a3b8;" data-cell="seen">
+        {% if dev.last_seen_at %}{{ dev.last_seen_at|date:"d M Y" }}<br><small>{{ dev.last_seen_at|date:"H:i" }}</small>
+        {% else %}&mdash;{% endif %}
+      </td>
+      <td style="padding:.6rem .75rem;text-align:center;" data-cell="failed">
+        {% if dev.failed_attempts > 0 %}
+          <span style="color:#f87171;">{{ dev.failed_attempts }}</span>
+        {% else %}
+          <span style="color:#4ade80;">0</span>
+        {% endif %}
+      </td>
+      <td style="padding:.6rem .75rem;">
+        <a href="{% url 'camera:pair_device' user_pk=dev.user.pk %}"
+           style="background:#1e3a5f;color:#93c5fd;border-radius:.3rem;padding:.3rem .7rem;font-size:.78rem;text-decoration:none;display:inline-block;margin-bottom:.3rem;">
+          &#128247; Manage
+        </a>
+        {% if dev.is_active and not dev.revoked_at %}
+          <form method="post" action="{% url 'camera:revoke_device' device_pk=dev.pk %}"
+                style="display:inline;"
+                onsubmit="return confirm('Revoke {{ dev.user.username }}\'s device?');">
+            {% csrf_token %}
+            <button type="submit"
+                    style="background:#450a0a;color:#f87171;border:none;border-radius:.3rem;padding:.3rem .7rem;font-size:.78rem;cursor:pointer;">
+              Revoke
+            </button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+
+<!-- ── Live Upload Logs ─────────────────────────────────────────────────── -->
+<div style="margin-top:2rem;">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+    <h2 class="cam-log-heading" style="font-size:1rem;font-weight:700;color:#f8fafc;">&#128443; Recent Upload Logs</h2>
+    <span id="logs-count" style="background:#1e3a5f;color:#93c5fd;border-radius:1rem;padding:.1rem .6rem;font-size:.72rem;">&#8212;</span>
+  </div>
+  <div style="overflow-x:auto;">
+  <table class="cam-table" style="width:100%;border-collapse:collapse;font-size:.82rem;">
+    <thead>
+      <tr style="border-bottom:1px solid #334155;color:#64748b;text-align:left;">
+        <th style="padding:.5rem .75rem;">Time</th>
+        <th style="padding:.5rem .75rem;">User</th>
+        <th style="padding:.5rem .75rem;">Device</th>
+        <th style="padding:.5rem .75rem;">File</th>
+        <th style="padding:.5rem .75rem;">Size</th>
+        <th style="padding:.5rem .75rem;">View</th>
+        <th style="padding:.5rem .75rem;">Expires</th>
+        <th style="padding:.5rem .75rem;">IP</th>
+        <th style="padding:.5rem .75rem;">Delete</th>
+      </tr>
+    </thead>
+    <tbody id="logs-table-body">
+      <tr id="logs-empty-row">
+        <td colspan="9" style="padding:1.5rem;text-align:center;color:#475569;">Loading&#8230;</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+@keyframes cam-fadein { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+
+/* ── Day-mode: camera tables text visibility ────────────────────── */
+[data-theme="light"] .cam-table thead th { color: #3d536b !important; border-bottom-color: #b8cce0 !important; }
+[data-theme="light"] .cam-table td { color: #0d1f35 !important; border-bottom-color: rgba(0,31,107,.08) !important; }
+[data-theme="light"] .cam-table td small { color: #3d536b !important; }
+[data-theme="light"] .cam-log-heading { color: #0d1f35 !important; }
+[data-theme="light"] .cam-view-link { color: #1d4ed8 !important; }
+[data-theme="light"] #logs-count { background: #dbeafe !important; color: #1e40af !important; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script type="application/json" id="cam-device-list-data">{"devicesFeedUrl":"{% url 'camera:devices_feed' %}","logsFeedUrl":"{% url 'camera:logs_feed' %}"}</script>
+<script src="{% static 'js/camera_devices.js' %}"></script>
+{% endblock %}

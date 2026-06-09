@@ -1,0 +1,98 @@
+# =============================================================================
+# ArmGuard RDS V1 — Gunicorn Configuration File
+# =============================================================================
+# Reference: https://docs.gunicorn.org/en/stable/settings.html
+#
+# Worker counts are read from /etc/gunicorn/workers.env at runtime,
+# written there by gunicorn-autoconf.sh. This file provides sane fallbacks
+# if that env file has not been generated yet.
+#
+# Run the auto-tuner once at deploy time (deploy.sh does this automatically):
+#   sudo /usr/local/bin/gunicorn-autoconf.sh
+#
+# Regenerate after hardware changes (CPU/RAM upgrade):
+#   sudo /usr/local/bin/gunicorn-autoconf.sh && sudo systemctl restart armguard-gunicorn
+# =============================================================================
+
+import multiprocessing
+import os
+
+# ── Worker count ─────────────────────────────────────────────────────────────
+# Formula: (logical_cpus × 2) + 1, capped by RAM (1 worker ≈ 100 MB RSS).
+# Override via GUNICORN_WORKERS env var (set by gunicorn-autoconf.sh).
+_cpus = multiprocessing.cpu_count()
+workers = int(os.environ.get("GUNICORN_WORKERS", (_cpus * 2) + 1))
+
+# ── SQLite single-worker guard (S-1 FIX) ─────────────────────────────────────
+# SQLite does not support row-level locking — SELECT FOR UPDATE is a no-op.
+# Running more than one worker with SQLite creates a TOCTOU race condition:
+# two concurrent Withdrawal requests can both pass can_be_withdrawn() and
+# issue the same weapon to two different personnel simultaneously.
+#
+# When DB_ENGINE is SQLite (the current default), force workers=1 regardless
+# of the hardware-derived count above.  This eliminates the race at the cost
+# of reduced throughput — acceptable for a single-server armory system.
+#
+# To unlock multi-worker operation, migrate to PostgreSQL and set
+# DB_ENGINE=django.db.backends.postgresql in .env.
+_db_engine = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
+if 'sqlite' in _db_engine.lower():
+    workers = 1
+    import sys as _sys
+    print(
+        "[gunicorn] SQLite detected — forcing workers=1 to prevent concurrent "
+        "write race conditions. Migrate to PostgreSQL to enable multi-worker operation.",
+        file=_sys.stderr,
+    )
+
+# ── Worker class ─────────────────────────────────────────────────────────────
+# gthread: each worker spawns THREADS green threads.
+# Better than 'sync' for I/O-bound Django apps (DB queries, file reads).
+# Better than 'gevent' for pure-WSGI Django (no async complications).
+worker_class = "gthread"
+
+# ── Thread count ─────────────────────────────────────────────────────────────
+# SSD: 2 threads (I/O is fast, threads add CPU overhead).
+# HDD: 4 threads (threads absorb disk-wait latency).
+# Override via GUNICORN_THREADS (set by gunicorn-autoconf.sh).
+threads = int(os.environ.get("GUNICORN_THREADS", 2))
+
+# ── Timeouts ─────────────────────────────────────────────────────────────────
+# 120 s prevents spurious WORKER TIMEOUT kills on slow DB queries or large
+# report generation. Gunicorn logs a CRITICAL warning at exactly this value.
+timeout = 120
+graceful_timeout = 30  # seconds a worker has to finish in-flight requests on HUP
+
+# ── Keep-alive ───────────────────────────────────────────────────────────────
+# Nginx keepalive 8 upstream matches this; eliminates a TCP handshake per request.
+keepalive = 5
+
+# ── Worker recycling ─────────────────────────────────────────────────────────
+# Worker recycling is disabled (max_requests=0) because background simulation
+# threads (OREX) can run for ~10 minutes.  If a worker is recycled mid-run the
+# daemon thread is killed and the SimulationRun stays stuck in 'running' state.
+# This is an internal low-traffic app so memory-leak recycling is not needed.
+max_requests = 0
+max_requests_jitter = 0
+
+# ── Binding ───────────────────────────────────────────────────────────────────
+# Override GUNICORN_BIND to use a Unix socket for lower latency:
+#   GUNICORN_BIND=unix:/run/armguard/gunicorn.sock
+# Default: TCP on loopback (simpler, works without socket directory setup).
+bind = os.environ.get("GUNICORN_BIND", "127.0.0.1:8000")
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+accesslog = "/var/log/armguard/gunicorn-access.log"
+errorlog  = "/var/log/armguard/gunicorn.log"
+loglevel  = "info"
+capture_output = True  # redirect print() / uncaught exceptions to errorlog
+
+# ── Process naming ────────────────────────────────────────────────────────────
+# Visible in ps/top as 'armguard-v1 [worker 1]' etc.
+proc_name = "armguard-v1"
+
+# ── Security ─────────────────────────────────────────────────────────────────
+# Defend against slow-header attacks / oversized request lines.
+limit_request_line   = 4094
+limit_request_fields = 100
+limit_request_field_size = 8190

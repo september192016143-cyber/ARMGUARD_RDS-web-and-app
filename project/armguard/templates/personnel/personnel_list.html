@@ -1,0 +1,67 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Personnel — ARMGUARD{% endblock %}
+{% block page_title %}Personnel{% endblock %}
+{% block page_sub %}All registered members{% endblock %}
+
+{% block topbar_actions %}
+{% if can_add %}
+<a href="{% url 'personnel-create' %}" class="btn btn-primary btn-sm">
+  <i class="fa-solid fa-user-plus"></i> Add Personnel
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<style>
+.main{height:100vh;min-height:unset;overflow:hidden}
+.page-body{display:flex;flex-direction:column;overflow:hidden;padding-bottom:.75rem}
+.page-body>.card{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.page-body>.card>.filter-bar{flex-shrink:0}
+.page-body>.card>.table-wrap{flex:1;overflow-y:auto;min-height:0}
+.page-body>.card table tbody td{padding:.45rem .85rem}
+.page-body>.card table thead th{padding:.45rem .85rem}
+</style>
+<div class="card">
+  <!-- Search / Filter bar -->
+  <div class="filter-bar">
+    <form id="personnel-filter-form" method="get" class="search-bar" style="flex:1" data-url="{% url 'personnel-list' %}">
+      <div class="input-wrap" style="flex:1;max-width:320px">
+        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;pointer-events:none"></i>
+        <input id="personnel-q" type="text" name="q" value="{{ request.GET.q }}" class="form-control"
+               placeholder="Search name, ID, AFSN…" style="padding-left:2.1rem" autocomplete="off">
+      </div>
+      <select id="personnel-category" name="category" class="form-control" style="max-width:140px">
+        <option value="">All Personnel</option>
+        <option value="Officer" {% if request.GET.category == 'Officer' %}selected{% endif %}>Officer</option>
+        <option value="Enlisted" {% if request.GET.category == 'Enlisted' %}selected{% endif %}>Enlisted</option>
+      </select>
+      <select id="personnel-group" name="group" class="form-control" style="max-width:140px">
+        <option value="">All Groups</option>
+        {% for g in groups %}
+        <option value="{{ g }}" {% if request.GET.group == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+      <select id="personnel-squadron" name="squadron" class="form-control" style="max-width:160px">
+        <option value="">All Squadrons</option>
+        {% for s in squadrons %}
+        <option value="{{ s }}" {% if request.GET.squadron == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      {% if request.GET.q or request.GET.category or request.GET.group or request.GET.squadron %}
+      <a href="{% url 'personnel-list' %}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-xmark"></i> Clear</a>
+      {% endif %}
+    </form>
+    <span id="personnel-count" class="text-muted" style="font-size:.75rem;white-space:nowrap">{{ page_obj.paginator.count }} records</span>
+  </div>
+
+  <div id="personnel-results" class="table-wrap">
+    {% include 'personnel/personnel_rows.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/personnel_list.js' %}"></script>
+{% endblock %}

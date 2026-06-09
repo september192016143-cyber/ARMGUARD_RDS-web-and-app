@@ -1,0 +1,296 @@
+﻿{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Print Reports - ARMGUARD{% endblock %}
+{% block page_title %}Print Reports{% endblock %}
+{% block page_sub %}Transaction History & Daily Inventory Report{% endblock %}
+
+{% block topbar_actions %}
+{% if can_print %}
+<button data-action="print"
+  data-print-url="{% url 'print_handler:print_transactions' %}?bare=1{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}"
+  title="Print Report" class="topbar-icon-btn" style="gap:.4rem;height:40px;padding:0 1rem;width:auto;font-size:.82rem;font-weight:600;font-family:inherit">
+  <i class="fa-solid fa-print" style="font-size:.9rem"></i> Print
+</button>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <!-- ── Daily Firearms Inventory Report ────────────────────────── -->
+  <div class="eval-wrapper">
+
+    <div class="eval-header">
+      <h2 class="eval-title">DAILY FIREARMS INVENTORY REPORT</h2>
+      {% if unit_name %}<p style="font-size:.85rem;font-weight:600;margin-top:2px">{{ unit_name }}</p>{% endif %}
+      <p class="eval-date">Date: {% now "d F Y" %}</p>
+    </div>
+
+    <table class="eval-table">
+      <thead>
+        <tr>
+          <th class="col-nomenclature">NOMENCLATURE</th>
+          <th class="col-num">STOCK</th>
+          <th class="col-num">PAR</th>
+          <th class="col-num">TR</th>
+          <th class="col-num">UNSERVICEABLE</th>
+          <th class="col-total">TOTAL POSSESSED</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in firearms_eval_rows %}
+        <tr>
+          <td class="col-nomenclature">{{ row.label }}</td>
+          <td class="col-num">{{ row.stock }}</td>
+          <td class="col-num">{{ row.par }}</td>
+          <td class="col-num">{{ row.tr }}</td>
+          <td class="col-num">{{ row.unserviceable }}</td>
+          <td class="col-total">{{ row.total }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row">
+          <td class="col-nomenclature"><strong>TOTAL</strong></td>
+          <td class="col-num"><strong>{{ firearms_eval_totals.stock }}</strong></td>
+          <td class="col-num"><strong>{{ firearms_eval_totals.par }}</strong></td>
+          <td class="col-num"><strong>{{ firearms_eval_totals.tr }}</strong></td>
+          <td class="col-num"><strong>{{ firearms_eval_totals.unserviceable }}</strong></td>
+          <td class="col-total"><strong>{{ firearms_eval_totals.total }}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Signature Block -->
+    <div class="sig-wrapper">
+      <!-- Armorer (left) -->
+      <div class="sig-block-wrap sig-block-left">
+        <table class="sig-block">
+          <tr>
+            <td colspan="2" class="sig-block-name">{{ armorer_name }}</td>
+          </tr>
+          {% if armorer_rank or armorer_branch %}
+          <tr>
+            <td class="sig-block-rank">{{ armorer_rank }}</td>
+            <td class="sig-block-branch">{{ armorer_branch }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td colspan="2" class="sig-block-desig">{{ armorer_designation }}</td>
+          </tr>
+        </table>
+      </div>
+      <!-- Commander (right) -->
+      <div class="sig-block-wrap sig-block-right">
+        <table class="sig-block">
+          <tr>
+            <td colspan="2" class="sig-block-name">{{ commander_name }}</td>
+          </tr>
+          {% if commander_rank or commander_branch %}
+          <tr>
+            <td class="sig-block-rank">{{ commander_rank }}</td>
+            <td class="sig-block-branch">{{ commander_branch }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td colspan="2" class="sig-block-desig">{{ commander_designation }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /.eval-wrapper -->
+</div>
+
+<style>
+/* ── Layout ─────────────────────────────────────── */
+.container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+
+.eval-wrapper {
+  background: #fff !important;
+  color: #000 !important;
+  padding: 28px 32px 24px;
+  border: 2px solid #000;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* ── Header ─────────────────────────────────────── */
+.eval-header { text-align: center; margin-bottom: 18px; }
+
+.eval-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.eval-date {
+  font-size: 13px;
+  margin: 0;
+  color: #333;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* ── Table ──────────────────────────────────────── */
+.eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 28px;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.eval-table th,
+.eval-table td {
+  border: 1.5px solid #000;
+  padding: 7px 10px;
+  text-align: center;
+  color: #000 !important;
+  background-color: #fff !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+.eval-table thead tr {
+  background: #d0d0d0 !important;
+}
+
+.eval-table th {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #000 !important;
+  background: #d0d0d0 !important;
+}
+
+.eval-table td.col-nomenclature { text-align: left; font-weight: 600; color: #000 !important; }
+.eval-table th.col-nomenclature { text-align: left; }
+
+.col-total { font-weight: 700; }
+
+.totals-row td {
+  background: #ececec !important;
+  font-weight: 700;
+  color: #000 !important;
+}
+
+/* ── Signature Block ─────────────────────────────── */
+.sig-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 76px;
+}
+.sig-block-left  { /* anchored left by flex */ }
+.sig-block-right { /* anchored right by flex */ }
+
+/* Each sig block: auto-width table sized to the name */
+.sig-block {
+  border-collapse: collapse;
+  border: none;
+  width: auto;
+  table-layout: auto;
+}
+.sig-block td {
+  border: none;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif !important;
+  color: #000 !important;
+}
+.sig-block-name {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-align: left;
+  padding-bottom: 1px;
+}
+.sig-block-rank {
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  padding-right: 1em;
+}
+.sig-block-branch {
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.sig-block-desig {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding-top: 1px;
+}
+
+/* ── Print overrides ────────────────────────────── */
+
+/*
+ * Browser (Chrome/Edge) native print headers/footers (date, title, URL, page №)
+ * cannot be removed by CSS — the user must uncheck "Headers and footers" in the
+ * print dialog. The tip banner above the Print button guides them.
+ * We use standard margins so content is not clipped.
+ */
+@page { size: A4 portrait; margin: 1.5cm; }
+
+@media print {
+  /* Hide all UI chrome */
+  .sidebar,
+  .topbar,
+  .no-print { display: none !important; }
+
+  /* Reset layout — fill entire page */
+  html, body {
+    background: #fff !important;
+    margin: 0 !important; padding: 0 !important;
+    width: 100% !important;
+  }
+  .main, .page-body {
+    margin: 0 !important; padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Report container spans full width */
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Content padding replaces the @page margin */
+  .eval-wrapper {
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* Scale fonts slightly for compact fit on A4 */
+  .eval-title  { font-size: 15pt !important; }
+  .eval-date   { font-size: 10pt !important; }
+  .eval-table  { font-size: 9pt  !important; width: 100% !important; }
+  .eval-table th, .eval-table td {
+    border-color: #000 !important;
+    padding: 4pt 5pt !important;
+  }
+
+  /* Sig block fills full width */
+  .sig-wrapper { width: 100% !important; }
+  .sig-block-name  { font-size: 10pt !important; }
+  .sig-block-rank,
+  .sig-block-branch,
+  .sig-block-desig { font-size: 9pt  !important; }
+
+  /* Prevent unwanted page breaks inside the table */
+  .eval-table  { page-break-inside: avoid; }
+  tr           { page-break-inside: avoid; }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/print_page.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assign Weapons — {{ personnel.rank }} {{ personnel.last_name }}{% endblock %}
+{% block page_title %}Assign Weapons{% endblock %}
+{% block page_sub %}{{ personnel.rank }} {{ personnel.first_name }} {{ personnel.last_name }}{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'personnel-detail' personnel.Personnel_ID %}" class="btn btn-secondary btn-sm">
+  <i class="fa-solid fa-arrow-left"></i> Back
+</a>
+{% endblock %}
+
+{% block content %}
+<input type="text" id="aw-scan-capture" autofocus autocomplete="off" tabindex="-1"
+  style="position:fixed;left:-9999px;top:-9999px;width:0;height:0;opacity:0;pointer-events:none;"
+  aria-label="Barcode scanner capture">
+<form method="post" style="max-width:600px">
+  {% csrf_token %}
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-header"><span class="card-title">Weapon Assignment</span></div>
+    <div style="display:flex;flex-direction:column;gap:1.25rem;padding:1.25rem">
+
+      <div>
+        <label for="pistol-select" style="font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;display:block">Pistol</label>
+        {% if current_pistols %}
+        <div style="font-size:.82rem;margin-bottom:.5rem;color:var(--text)">
+          Currently assigned:
+          {% for p in current_pistols %}
+            <strong>{{ p.model }}</strong> (SN: {{ p.serial_number }}){% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        <select id="pistol-select" name="pistol" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:.4rem;font-size:.85rem;padding:.45rem .7rem;outline:none">
+          <option value="">— None (clear assignment) —</option>
+          {% for p in pistols %}
+          {% if p in current_pistols %}
+          <option value="{{ p.item_id }}" data-qr="{{ p.qr_code }}" selected>
+            {{ p.model }} — SN: {{ p.serial_number }} [{{ p.item_status }}]
+          </option>
+          {% elif p.item_assigned_to %}
+          <option value="" disabled data-qr="{{ p.qr_code }}" data-item-id="{{ p.item_id }}" data-holder="{{ p.item_assigned_to.rank }} {{ p.item_assigned_to.last_name }}" data-model="{{ p.model }}" data-serial="{{ p.serial_number }}" style="color:var(--muted);font-style:italic">
+            ✗ {{ p.model }} — SN: {{ p.serial_number }} → {{ p.item_assigned_to.rank }} {{ p.item_assigned_to.last_name }} (assigned)
+          </option>
+          {% else %}
+          <option value="{{ p.item_id }}" data-qr="{{ p.qr_code }}">
+            {{ p.model }} — SN: {{ p.serial_number }} [{{ p.item_status }}]
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="rifle-select" style="font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;display:block">Rifle</label>
+        {% if current_rifles %}
+        <div style="font-size:.82rem;margin-bottom:.5rem;color:var(--text)">
+          Currently assigned:
+          {% for r in current_rifles %}
+            <strong>{{ r.model }}</strong> (SN: {{ r.serial_number }}){% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        <select id="rifle-select" name="rifle" style="width:100%;background:var(--card);border:1.5px solid var(--border);color:var(--text);border-radius:.4rem;font-size:.85rem;padding:.45rem .7rem;outline:none">
+          <option value="">— None (clear assignment) —</option>
+          {% for r in rifles %}
+          {% if r in current_rifles %}
+          <option value="{{ r.item_id }}" data-qr="{{ r.qr_code }}" selected>
+            {{ r.model }} — SN: {{ r.serial_number }} [{{ r.item_status }}]
+          </option>
+          {% elif r.item_assigned_to %}
+          <option value="" disabled data-qr="{{ r.qr_code }}" data-item-id="{{ r.item_id }}" data-holder="{{ r.item_assigned_to.rank }} {{ r.item_assigned_to.last_name }}" data-model="{{ r.model }}" data-serial="{{ r.serial_number }}" style="color:var(--muted);font-style:italic">
+            ✗ {{ r.model }} — SN: {{ r.serial_number }} → {{ r.item_assigned_to.rank }} {{ r.item_assigned_to.last_name }} (assigned)
+          </option>
+          {% else %}
+          <option value="{{ r.item_id }}" data-qr="{{ r.qr_code }}">
+            {{ r.model }} — SN: {{ r.serial_number }} [{{ r.item_status }}]
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="display:flex;gap:.75rem">
+    <button type="submit" id="assign-weapon-submit" name="save" class="btn btn-primary">
+      <i class="fa-solid fa-check"></i> Save Assignment
+    </button>
+    <a href="{% url 'personnel-detail' personnel.Personnel_ID %}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/assign_weapon.js' %}"></script>
+{% endblock %}
+
