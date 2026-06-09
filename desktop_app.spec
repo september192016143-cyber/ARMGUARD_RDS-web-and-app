@@ -13,10 +13,7 @@ Output: dist\ARMGUARD_RDS\
 The installer\armguard_setup.iss Inno Setup script then wraps this folder
 into a single Setup.exe that end-users can run.
 """
-from PyInstaller.utils.hooks import collect_all, collect_data_files
-import os
-
-block_cipher = None
+from PyInstaller.utils.hooks import collect_all
 
 # ── Collect packages that use dynamic imports / data files ────────────────────
 django_datas,           django_bins,           django_hidden           = collect_all('django')
@@ -148,13 +145,10 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=['tkinter', 'matplotlib', 'numpy', 'scipy', 'pandas'],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data)
 
 exe = EXE(
     pyz,
@@ -165,7 +159,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,               # UPX disabled: causes false-positive AV detections on Windows
     console=False,           # No black console window
     disable_windowed_traceback=False,
     target_arch=None,
@@ -180,7 +174,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='ARMGUARD_RDS',
 )
