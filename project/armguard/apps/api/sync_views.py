@@ -201,7 +201,9 @@ class SyncPushView(APIView):
                                 continue
                             try:
                                 txn = Transaction.objects.get(sync_uuid=sync_uuid_str)
-                                defaults[f'{fk_field}_id'] = txn.transaction_id
+                                # fk_field already ends with '_id' (e.g. 'withdrawal_pistol_transaction_id')
+                                # so assign directly — do NOT add another '_id' suffix.
+                                defaults[fk_field] = txn.transaction_id
                             except Transaction.DoesNotExist:
                                 pass
                         TransactionLogs.objects.get_or_create(

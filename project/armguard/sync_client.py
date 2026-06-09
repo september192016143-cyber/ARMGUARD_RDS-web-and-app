@@ -281,8 +281,9 @@ def _upsert_logs(records: list[dict]) -> tuple[int, int]:
                 continue
             try:
                 txn = Transaction.objects.get(sync_uuid=sync_uuid_str)
-                # Use _id suffix to set FK column directly without an extra query.
-                defaults[f'{fk_field}_id'] = txn.transaction_id
+                # fk_field already ends with '_id' (e.g. 'withdrawal_pistol_transaction_id')
+                # so assign directly — do NOT add another '_id' suffix.
+                defaults[fk_field] = txn.transaction_id
             except Transaction.DoesNotExist:
                 logger.debug(
                     'Sync log: Transaction sync_uuid=%s not found, skipping FK %s',

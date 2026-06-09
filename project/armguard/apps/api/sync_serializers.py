@@ -116,9 +116,17 @@ class SyncTransactionLogsSerializer(serializers.ModelSerializer):
     def get__transaction_sync_uuids(self, obj):
         result = {}
         for field_name in _LOG_TXN_FK_FIELDS:
-            txn = getattr(obj, field_name, None)
+            # field_name ends with '_id' (e.g. 'withdrawal_pistol_transaction_id').
+            # getattr(obj, field_name) returns the raw integer PK column value, not
+            # a Transaction instance.  Strip '_id' to use the relation descriptor
+            # which returns the actual Transaction object (or None if unset).
+            rel_name = field_name[:-3]  # 'withdrawal_pistol_transaction_id' → 'withdrawal_pistol_transaction'
+            txn = getattr(obj, rel_name, None)
             if txn is not None:
-                result[field_name] = str(txn.sync_uuid)
+                try:
+                    result[field_name] = str(txn.sync_uuid)
+                except Exception:
+                    pass
         return result
 
     class Meta:
