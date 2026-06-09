@@ -338,7 +338,14 @@ import logging.handlers as _log_handlers
 import queue as _queue
 
 LOG_DIR = BASE_DIR / 'logs'
-LOG_DIR.mkdir(exist_ok=True)
+# FIX-4: When running as a PyInstaller bundle, desktop_app.py sets ARMGUARD_DATA_DIR
+# before django.setup() is called. Override LOG_DIR NOW so the RotatingFileHandler
+# below creates armguard.log in the writable data directory, not inside _internal/.
+# In production (gunicorn) this env var is never set, so BASE_DIR / 'logs' is used.
+_armguard_data_for_log = os.environ.get('ARMGUARD_DATA_DIR', '')
+if _armguard_data_for_log:
+    LOG_DIR = Path(_armguard_data_for_log) / 'logs'
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Build the real file + console handlers that the listener will use.
 _log_formatter = _logging.Formatter('[%(levelname)s] %(asctime)s %(name)s %(process)d %(message)s')

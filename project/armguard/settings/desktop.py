@@ -70,4 +70,15 @@ if _data_dir_env:
     }
     MEDIA_ROOT = _DATA / 'media'
     LOG_DIR    = _DATA / 'logs'
+    # FIX-5: Point the FileBasedCache to a writable data directory.
+    # base.py sets it to BASE_DIR.parent / 'cache' which resolves to _MEIPASS/cache/
+    # when frozen — not ideal. Use DATA_DIR/cache/ alongside the exe instead.
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(_DATA / 'cache'),
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 1000},
+        }
+    }
 

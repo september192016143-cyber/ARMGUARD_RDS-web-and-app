@@ -108,7 +108,11 @@ def _get_app_icon() -> str | None:
 
     Called after django.setup() so the DB is available.
     """
-    _fallback = ROOT_DIR / "project" / "armguard" / "static" / "images" / "favicon.ico"
+    # FIX-3: When frozen, bundled static files live in _MEIPASS, not ROOT_DIR.
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        _fallback = Path(sys._MEIPASS) / 'project' / 'armguard' / 'static' / 'images' / 'favicon.ico'
+    else:
+        _fallback = ROOT_DIR / 'project' / 'armguard' / 'static' / 'images' / 'favicon.ico'
 
     try:
         from armguard.apps.users.models import SystemSettings
@@ -169,8 +173,26 @@ def _setup_django(port: int) -> None:
     # Pass the writable data directory to desktop.py so db/media/logs are stored
     # outside _internal/ when running as a PyInstaller bundle.
     os.environ["ARMGUARD_DATA_DIR"] = str(DATA_DIR)
+
+    # FIX-1: Load .env from the correct path (alongside the exe) BEFORE django.setup()
+    # so that base.py's load_dotenv() finds the vars already set and is a no-op.
+    # Critical when frozen: base.py uses BASE_DIR.parent (= _MEIPASS/) for dotenv,
+    # but the actual .env sits in ROOT_DIR (= exe directory).
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(str(ENV_FILE), override=False)
+
     import django
     django.setup()
+
+    # FIX-2: Run migrations on first launch so db.sqlite3 has all tables.
+    # With no pending migrations this completes in < 1 s and is safe to run every
+    # startup — Django skips already-applied migrations automatically.
+    try:
+        from django.core.management import call_command
+        call_command('migrate', '--run-syncdb', verbosity=0, interactive=False)
+        print("[ARMGUARD] Database migrations applied.")
+    except Exception as exc:
+        print(f"[ARMGUARD] WARNING: migrate failed — {exc}", file=sys.stderr)
 
     # Clear the rate-limit cache so counts from previous runs don't carry over.
     # This prevents the "submitting too quickly" false-positive on the login page

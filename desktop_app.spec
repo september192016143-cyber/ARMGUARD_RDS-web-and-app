@@ -19,14 +19,18 @@ import os
 block_cipher = None
 
 # ── Collect packages that use dynamic imports / data files ────────────────────
-django_datas,       django_bins,       django_hidden       = collect_all('django')
-drf_datas,          drf_bins,          drf_hidden          = collect_all('rest_framework')
-webview_datas,      webview_bins,      webview_hidden      = collect_all('webview')
-whitenoise_datas,   whitenoise_bins,   whitenoise_hidden   = collect_all('whitenoise')
-dotenv_datas,       dotenv_bins,       dotenv_hidden       = collect_all('dotenv')
-PIL_datas,          PIL_bins,          PIL_hidden          = collect_all('PIL')
-qrcode_datas,       qrcode_bins,       qrcode_hidden       = collect_all('qrcode')
-barcode_datas,      barcode_bins,      barcode_hidden      = collect_all('barcode')
+django_datas,           django_bins,           django_hidden           = collect_all('django')
+drf_datas,              drf_bins,              drf_hidden              = collect_all('rest_framework')
+drf_spec_datas,         drf_spec_bins,         drf_spec_hidden         = collect_all('drf_spectacular')
+webview_datas,          webview_bins,          webview_hidden          = collect_all('webview')
+whitenoise_datas,       whitenoise_bins,       whitenoise_hidden       = collect_all('whitenoise')
+dotenv_datas,           dotenv_bins,           dotenv_hidden           = collect_all('dotenv')
+PIL_datas,              PIL_bins,              PIL_hidden              = collect_all('PIL')
+qrcode_datas,           qrcode_bins,           qrcode_hidden           = collect_all('qrcode')
+fitz_datas,             fitz_bins,             fitz_hidden             = collect_all('fitz')  # PyMuPDF
+django_otp_datas,       django_otp_bins,       django_otp_hidden       = collect_all('django_otp')
+gspread_datas,          gspread_bins,          gspread_hidden          = collect_all('gspread')
+google_datas,           google_bins,           google_hidden           = collect_all('google')
 
 # ── App-specific data files ────────────────────────────────────────────────────
 app_datas = [
@@ -43,22 +47,28 @@ all_datas = (
     app_datas
     + django_datas
     + drf_datas
+    + drf_spec_datas
     + webview_datas
     + whitenoise_datas
     + dotenv_datas
     + PIL_datas
     + qrcode_datas
-    + barcode_datas
+    + fitz_datas
+    + django_otp_datas
+    + gspread_datas
+    + google_datas
 )
 
 all_binaries = (
-    django_bins + drf_bins + webview_bins + whitenoise_bins
-    + dotenv_bins + PIL_bins + qrcode_bins + barcode_bins
+    django_bins + drf_bins + drf_spec_bins + webview_bins + whitenoise_bins
+    + dotenv_bins + PIL_bins + qrcode_bins + fitz_bins
+    + django_otp_bins + gspread_bins + google_bins
 )
 
 hidden_imports = (
-    django_hidden + drf_hidden + webview_hidden + whitenoise_hidden
-    + dotenv_hidden + PIL_hidden + qrcode_hidden + barcode_hidden + [
+    django_hidden + drf_hidden + drf_spec_hidden + webview_hidden + whitenoise_hidden
+    + dotenv_hidden + PIL_hidden + qrcode_hidden + fitz_hidden
+    + django_otp_hidden + gspread_hidden + google_hidden + [
         # Django internals often missed by the analyser
         'django.template.defaulttags',
         'django.template.defaultfilters',
@@ -70,10 +80,6 @@ hidden_imports = (
         # DRF
         'rest_framework.authtoken',
         'rest_framework.authtoken.admin',
-        # OTP / 2FA
-        'django_otp',
-        'django_otp.plugins.otp_totp',
-        'django_otp.plugins.otp_static',
         # Our apps (explicit so auto-discovery works inside the bundle)
         'armguard',
         'armguard.wsgi',
@@ -98,11 +104,9 @@ hidden_imports = (
         'requests',
         'requests.adapters',
         'urllib3',
-        # Misc
-        'weasyprint',
-        'pypdf',
-        'reportlab',
+        # Excel import
         'openpyxl',
+        # dotenv
         'dotenv',
     ]
 )
