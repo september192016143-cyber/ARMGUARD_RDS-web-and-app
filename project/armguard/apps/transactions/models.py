@@ -1457,20 +1457,25 @@ class TransactionLogs(models.Model):
         # Auto-copy issuance_type from the first available withdrawal Transaction FK.
         # Only set if not already populated — preserves any manual override.
         if not self.issuance_type:
-            for txn_fk in [
-                self.withdrawal_pistol_transaction_id,
-                self.withdrawal_rifle_transaction_id,
-                self.withdrawal_pistol_magazine_transaction_id,
-                self.withdrawal_rifle_magazine_transaction_id,
-                self.withdrawal_pistol_ammunition_transaction_id,
-                self.withdrawal_rifle_ammunition_transaction_id,
-                self.withdrawal_pistol_holster_transaction_id,
-                self.withdrawal_magazine_pouch_transaction_id,
-                self.withdrawal_rifle_sling_transaction_id,
-                self.withdrawal_bandoleer_transaction_id,
+            # Use relation descriptors (without '_id') to access the actual
+            # Transaction objects.  The '_id'-suffixed attributes are raw integer
+            # PKs; getattr(int, 'issuance_type', None) is always None, so the
+            # auto-copy never fired before this fix.
+            for _txn_attr in [
+                'withdrawal_pistol_transaction',
+                'withdrawal_rifle_transaction',
+                'withdrawal_pistol_magazine_transaction',
+                'withdrawal_rifle_magazine_transaction',
+                'withdrawal_pistol_ammunition_transaction',
+                'withdrawal_rifle_ammunition_transaction',
+                'withdrawal_pistol_holster_transaction',
+                'withdrawal_magazine_pouch_transaction',
+                'withdrawal_rifle_sling_transaction',
+                'withdrawal_bandoleer_transaction',
             ]:
-                if txn_fk and getattr(txn_fk, 'issuance_type', None):
-                    self.issuance_type = txn_fk.issuance_type
+                _txn = getattr(self, _txn_attr, None)
+                if _txn and getattr(_txn, 'issuance_type', None):
+                    self.issuance_type = _txn.issuance_type
                     break
         # Always recompute log_status from actual FK values before writing to DB.
         self.update_log_status()

@@ -370,7 +370,14 @@ class SyncClient:
             q = Q()
             for fk_field in _LOG_TXN_FK_FIELDS:
                 q |= Q(**{f'{fk_field}__in': txn_ids})
-            log_qs = TransactionLogs.objects.filter(q).distinct()
+            # select_related on all 20 relation descriptors (without '_id') so
+            # SyncTransactionLogsSerializer.get__transaction_sync_uuids does
+            # not trigger up to 20 extra queries per log record.
+            _log_rel_names = [f[:-3] for f in _LOG_TXN_FK_FIELDS]
+            log_qs = (TransactionLogs.objects
+                      .filter(q)
+                      .distinct()
+                      .select_related(*_log_rel_names))
             log_data = list(SyncTransactionLogsSerializer(log_qs, many=True).data)
 
         return txn_data, log_data

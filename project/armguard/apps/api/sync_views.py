@@ -94,7 +94,14 @@ class SyncPullView(APIView):
             _log_q = Q()
             for _fk in _LOG_TXN_FK_FIELDS:
                 _log_q |= Q(**{f'{_fk}__in': txn_pks})
-            logs = TransactionLogs.objects.filter(_log_q).distinct().order_by('record_id')
+            # select_related on all 20 relation descriptors (without '_id') so the
+            # serializer's get__transaction_sync_uuids does not trigger N+1 queries.
+            _log_rel_names = [f[:-3] for f in _LOG_TXN_FK_FIELDS]
+            logs = (TransactionLogs.objects
+                    .filter(_log_q)
+                    .distinct()
+                    .select_related(*_log_rel_names)
+                    .order_by('record_id'))
         else:
             logs = TransactionLogs.objects.none()
 
@@ -147,76 +154,76 @@ class SyncPushView(APIView):
         txn_records = data.get('transactions', [])
         log_records = data.get('logs', [])
 
-        try:
-            with db_transaction.atomic():
-                # ── Transactions ──────────────────────────────────────────────
-                for rec in txn_records:
-                    sync_uuid = rec.get('sync_uuid')
-                    if not sync_uuid:
-                        errors.append({'record': rec, 'error': 'sync_uuid is required'})
-                        continue
+        # ── Transactions ──────────────────────────────────────────────────────
+        # Each record runs in its own atomic() block so an IntegrityError on
+        # one row does not leave the connection in an error state and does not
+        # roll back records that have already succeeded.
+        for rec in txn_records:
+            sync_uuid = rec.get('sync_uuid')
+            if not sync_uuid:
+                errors.append({'record': rec, 'error': 'sync_uuid is required'})
+                continue
 
-                    # Remove auto-set or server-side-only fields from the incoming
-                    # record so we don't accidentally override them.
-                    rec.pop('updated_at', None)
+            # Remove auto-set or server-side-only fields from the incoming record.
+            rec.pop('updated_at', None)
 
-                    try:
-                        obj, created = Transaction.objects.get_or_create(
-                            sync_uuid=sync_uuid,
-                            defaults=_build_transaction_defaults(rec),
-                        )
-                        if created:
-                            created_count += 1
-                            logger.info('Sync: created transaction sync_uuid=%s', sync_uuid)
-                        else:
-                            # Transaction already exists — update fields that may have changed.
-                            _apply_transaction_updates(obj, rec)
-                            updated_count += 1
-                            logger.info('Sync: updated transaction sync_uuid=%s', sync_uuid)
-                    except Exception as exc:
-                        logger.warning('Sync push error for transaction sync_uuid=%s: %s', sync_uuid, exc)
-                        errors.append({'sync_uuid': str(sync_uuid), 'error': str(exc)})
+            try:
+                with db_transaction.atomic():
+                    existing = Transaction.objects.filter(sync_uuid=sync_uuid).first()
+                    if existing is None:
+                        # Use bulk_create to bypass Transaction.save() side effects.
+                        # Those side effects (inventory status updates, TransactionLogs
+                        # creation, consumable adjustments) already ran on the desktop
+                        # that originated this transaction.  Re-running them here would
+                        # produce duplicate logs and double inventory adjustments.
+                        defaults = _build_transaction_defaults(rec)
+                        obj = Transaction(**defaults)
+                        obj.sync_uuid = sync_uuid
+                        Transaction.objects.bulk_create([obj], ignore_conflicts=True)
+                        created_count += 1
+                        logger.info('Sync: created transaction sync_uuid=%s', sync_uuid)
+                    else:
+                        # Transaction already exists — update safe mutable fields only.
+                        _apply_transaction_updates(existing, rec)
+                        updated_count += 1
+                        logger.info('Sync: updated transaction sync_uuid=%s', sync_uuid)
+            except Exception as exc:
+                logger.warning('Sync push error for transaction sync_uuid=%s: %s', sync_uuid, exc)
+                errors.append({'sync_uuid': str(sync_uuid), 'error': str(exc)})
 
-                # ── TransactionLogs ───────────────────────────────────────────
-                # TransactionLogs PK is `record_id` (AutoField).
-                # Transaction FK fields are resolved via `_transaction_sync_uuids`
-                # because auto-increment PKs differ between server and desktop.
-                # _LOG_TXN_FK_FIELDS is imported from sync_serializers at module level.
-                for rec in log_records:
-                    record_id = rec.get('record_id')
-                    if not record_id:
-                        continue
-                    try:
-                        # Build defaults, skipping the PK and the helper field.
-                        defaults = {
-                            k: v for k, v in rec.items()
-                            if k not in ('record_id', '_transaction_sync_uuids')
-                            and k not in _LOG_TXN_FK_FIELDS
-                            and v is not None
-                        }
-                        # Resolve each Transaction FK via its sync_uuid.
-                        uuid_map = rec.get('_transaction_sync_uuids') or {}
-                        for fk_field, sync_uuid_str in uuid_map.items():
-                            if not sync_uuid_str:
-                                continue
-                            try:
-                                txn = Transaction.objects.get(sync_uuid=sync_uuid_str)
-                                # fk_field already ends with '_id' (e.g. 'withdrawal_pistol_transaction_id')
-                                # so assign directly — do NOT add another '_id' suffix.
-                                defaults[fk_field] = txn.transaction_id
-                            except Transaction.DoesNotExist:
-                                pass
-                        TransactionLogs.objects.get_or_create(
-                            record_id=record_id,
-                            defaults=defaults,
-                        )
-                    except Exception as exc:
-                        logger.warning('Sync push error for log record_id=%s: %s', record_id, exc)
-                        errors.append({'record_id': record_id, 'error': str(exc)})
-
-        except Exception as exc:
-            logger.error('Sync push transaction rolled back: %s', exc)
-            return Response({'detail': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # ── TransactionLogs ───────────────────────────────────────────────────
+        for rec in log_records:
+            record_id = rec.get('record_id')
+            if not record_id:
+                continue
+            try:
+                with db_transaction.atomic():
+                    # Build defaults, skipping the PK and the helper field.
+                    defaults = {
+                        k: v for k, v in rec.items()
+                        if k not in ('record_id', '_transaction_sync_uuids')
+                        and k not in _LOG_TXN_FK_FIELDS
+                        and v is not None
+                    }
+                    # Resolve each Transaction FK via its sync_uuid.
+                    uuid_map = rec.get('_transaction_sync_uuids') or {}
+                    for fk_field, sync_uuid_str in uuid_map.items():
+                        if not sync_uuid_str:
+                            continue
+                        try:
+                            txn = Transaction.objects.get(sync_uuid=sync_uuid_str)
+                            # fk_field already ends with '_id' (e.g. 'withdrawal_pistol_transaction_id')
+                            # so assign directly — do NOT add another '_id' suffix.
+                            defaults[fk_field] = txn.transaction_id
+                        except Transaction.DoesNotExist:
+                            pass
+                    TransactionLogs.objects.get_or_create(
+                        record_id=record_id,
+                        defaults=defaults,
+                    )
+            except Exception as exc:
+                logger.warning('Sync push error for log record_id=%s: %s', record_id, exc)
+                errors.append({'record_id': record_id, 'error': str(exc)})
 
         result = {'created': created_count, 'updated': updated_count}
         if errors:
