@@ -400,6 +400,11 @@ djangorestframework==3.16.0
 django-otp==1.7.0
 gspread>=6.0.0
 google-auth>=2.29.0
+requests>=2.31.0
+drf-spectacular>=0.27.0
+# Desktop-only (unused on server — listed for completeness)
+# pywebview>=5.0
+# waitress>=3.0.0
 EOF
 fi
 
@@ -1128,4 +1133,11 @@ echo -e "     Download from https://armguard.local/download/ssl-cert/ and instal
 echo -e "     Trusted Root CA (see scripts/SSL_SELFSIGNED.md, Section 8)"
 echo -e "  4. Enable SECURE_SSL_REDIRECT in .env once SSL is confirmed working"
 echo -e "     (copy the nginx-armguard-ssl-lan.conf to /etc/nginx/sites-available/armguard)"
+echo -e "  5. ${YELLOW}Desktop sync setup${NC} — generate the API token for the desktop app:"
+echo -e "     sudo -u $DEPLOY_USER $VENV_PYTHON $PROJECT_DIR/manage.py drf_create_token <admin-username>"
+echo -e "     Then add to the desktop .env:"
+echo -e "       SYNC_SERVER_URL=https://${LAN_IP}"
+echo -e "       SYNC_API_TOKEN=<token-from-above>"
+echo -e "       SYNC_INTERVAL_MINUTES=5"
+echo -e "       SYNC_ENABLED=true"
 echo

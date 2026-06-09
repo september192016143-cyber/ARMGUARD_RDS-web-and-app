@@ -37,7 +37,7 @@ ENV_FILE="$DEPLOY_DIR/.env"
 SERVICE_NAME="armguard-gunicorn"
 LOG_DIR="/var/log/armguard"
 BRANCH="main"
-REPO_URL="https://github.com/september192016143-cyber/ARMGUARD_RDS_V1.git"
+REPO_URL="https://github.com/september192016143-cyber/ARMGUARD_RDS-web-and-app.git"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 
 # ---------------------------------------------------------------------------
@@ -937,3 +937,8 @@ info "Timestamp : $TIMESTAMP"
 [[ -n "${COMMIT:-}" ]] && info "Git commit : $COMMIT"
 info "Service   : $(systemctl is-active $SERVICE_NAME)"
 info "Logs      : journalctl -u $SERVICE_NAME -f"
+echo
+echo -e "  ${YELLOW}Desktop sync reminder:${NC}"
+echo -e "  If a desktop app token has not been created yet, run:"
+echo -e "    sudo -u $DEPLOY_USER $VENV_PYTHON $PROJECT_DIR/manage.py drf_create_token <admin-username>"
+echo -e "  Then set SYNC_SERVER_URL / SYNC_API_TOKEN / SYNC_ENABLED in the desktop .env"
