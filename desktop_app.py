@@ -76,6 +76,49 @@ def _wait_for_server(port: int, timeout: float = 20.0) -> bool:
     return False
 
 
+# ── Resolve window icon ───────────────────────────────────────────────────────
+def _get_app_icon() -> str | None:
+    """Return the path to a .ico file for the pywebview window/taskbar icon.
+
+    Priority:
+      1. Custom logo uploaded via Settings (SystemSettings.app_logo) — converted
+         to .ico on the fly using Pillow and cached in the system temp directory.
+      2. Bundled favicon.ico (project/armguard/static/images/favicon.ico).
+      3. None — pywebview will use the Python default icon.
+
+    Called after django.setup() so the DB is available.
+    """
+    _fallback = ROOT_DIR / "project" / "armguard" / "static" / "images" / "favicon.ico"
+
+    try:
+        from armguard.apps.users.models import SystemSettings
+        s = SystemSettings.get()
+        if s.app_logo and s.app_logo.name:
+            logo_path = Path(s.app_logo.path)
+            if logo_path.exists():
+                if logo_path.suffix.lower() == ".ico":
+                    return str(logo_path)
+                # Convert PNG/JPEG → .ico using Pillow (already a dependency).
+                import tempfile
+                from PIL import Image
+                ico_path = Path(tempfile.gettempdir()) / "armguard_window_icon.ico"
+                with Image.open(logo_path) as img:
+                    img = img.convert("RGBA")
+                    img.save(
+                        str(ico_path),
+                        format="ICO",
+                        sizes=[(256, 256), (64, 64), (48, 48), (32, 32), (16, 16)],
+                    )
+                print(f"[ARMGUARD] Window icon: custom logo ({logo_path.name})")
+                return str(ico_path)
+    except Exception as exc:
+        print(f"[ARMGUARD] Could not load custom logo for icon: {exc}")
+
+    if _fallback.exists():
+        return str(_fallback)
+    return None
+
+
 # ── Waitress server thread target ─────────────────────────────────────────────
 def _run_server(port: int) -> None:
     from waitress import serve  # type: ignore[import-untyped]
@@ -142,6 +185,9 @@ def main() -> None:
 
     print(f"[ARMGUARD] Ready — opening window at {url}")
 
+    # Resolve icon after Django is set up so SystemSettings is queryable.
+    _icon = _get_app_icon()
+
     # ── Start background sync thread (if configured) ──────────────────────────
     sync_url   = os.environ.get('SYNC_SERVER_URL', '').strip()
     sync_token = os.environ.get('SYNC_API_TOKEN',  '').strip()
@@ -155,10 +201,6 @@ def main() -> None:
         print("[ARMGUARD] Sync skipped — SYNC_SERVER_URL and SYNC_API_TOKEN not set in .env")
 
     import webview  # type: ignore[import-untyped]
-
-    # Use the project's favicon as the window/taskbar icon.
-    _icon_path = ROOT_DIR / "project" / "armguard" / "static" / "images" / "favicon.ico"
-    _icon = str(_icon_path) if _icon_path.exists() else None
 
     webview.create_window(
         "ARMGUARD RDS — Records & Dispensing System",
